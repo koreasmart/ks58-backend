@@ -47,7 +47,7 @@ jobs:
       working-directory: ./sst-backend
     
     - name: Check built JAR file
-      run: ls -lh ./eum/build/libs/*.jar
+      run: ls -lh ./sst-backend/build/libs/*.jar
 
     - name: Transfer a jar file to the Server
       uses: appleboy/scp-action@v0.1.7
