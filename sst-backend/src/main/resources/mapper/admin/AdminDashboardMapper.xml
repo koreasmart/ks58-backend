@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="sst.admin.mapper.AdminDashboardMapper">
+
+    <select id="getDashboardStats" resultType="sst.admin.dto.DashboardStatsResponse">
+        <!-- 🚀 4개의 COUNT 쿼리를 스칼라 서브쿼리로 한 방에 가져와 DB 부하를 최소화합니다 -->
+        SELECT 
+            (SELECT COUNT(*) FROM MEMBER WHERE MBR_USE_YN = 'Y') AS totalMembers,
+            <!-- 🚀 DATE()와 CURDATE()를 활용해 가입일이 오늘인 회원만 카운트 -->
+            (SELECT COUNT(*) FROM MEMBER WHERE MBR_USE_YN = 'Y' AND DATE(MBR_JOIN_DATE) = CURDATE()) AS newMembersToday,
+            (SELECT COUNT(*) FROM COMMUNITY WHERE COMM_USE_YN = 'Y') AS totalPosts,
+            <!-- 🚀 신고 내역은 논리 삭제가 없으므로 전체 테이블 카운트 -->
+            (SELECT COUNT(*) FROM REPORT) AS totalReports
+        FROM DUAL
+    </select>
+    
+    <!-- 🚀 최근 가입한 회원 5명 조회 -->
+	<select id="getRecentMembers" resultType="sst.member.domain.Member">
+	    SELECT 
+	        MBR_ID AS mbrId, 
+	        MBR_NICKNAME AS mbrNickname, 
+	        MBR_EMAIL AS mbrEmail, 
+	        MBR_JOIN_DATE AS mbrJoinDate
+	    FROM MEMBER
+	    ORDER BY MBR_JOIN_DATE DESC
+	    LIMIT 5
+	</select>
+	
+	<!-- 🚀 최근 등록된 뽐낼거리 게시글 5개 조회 -->
+	<select id="getRecentPosts" resultType="sst.community.domain.Community">
+	    SELECT 
+	        COMM_NO AS commNo, 
+	        COMM_TITLE AS commTitle, 
+	        COMM_REG_DATE AS commRegDate
+	    FROM COMMUNITY
+	    WHERE COMM_USE_YN = 'Y'
+	    ORDER BY COMM_NO DESC
+	    LIMIT 5
+	</select>
+
+</mapper>

@@ -1,0 +1,269 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="sst.member.mapper.MemberMapper">
+
+	<update id="updateMemberStatusByAdmin">
+	    UPDATE MEMBER
+	    SET MBR_USE_YN = #{mbrUseYn}
+	    WHERE MBR_ID = #{mbrId}
+	</update>
+	<update id="updateMemberByAdmin" parameterType="sst.member.domain.Member">
+	    /* 🚀 관리자 전용: 들어온(null이 아닌) 데이터만 쏙쏙 골라서 업데이트 (Null Overwrite 완벽 방어) */
+	    UPDATE MEMBER
+	    <set>
+	        <if test="mbrName != null and mbrName != ''">
+	            MBR_NAME = #{mbrName},
+	        </if>
+	        <if test="mbrNickname != null and mbrNickname != ''">
+	            MBR_NICKNAME = #{mbrNickname},
+	        </if>
+	        <if test="mbrTelno != null and mbrTelno != ''">
+	            MBR_TELNO = #{mbrTelno},
+	        </if>
+	        <if test="mbrZip != null and mbrZip != ''">
+	            MBR_ZIP = #{mbrZip},
+	        </if>
+	        <if test="mbrAddr != null and mbrAddr != ''">
+	            MBR_ADDR = #{mbrAddr},
+	        </if>
+	        <if test="mbrDaddr != null">
+	            MBR_DADDR = #{mbrDaddr},
+	        </if>
+	        <if test="mbrAuthCd != null and mbrAuthCd != ''">
+	            MBR_AUTH_CD = #{mbrAuthCd},
+	        </if>
+	        <if test="mbrUseYn != null and mbrUseYn != ''">
+	            MBR_USE_YN = #{mbrUseYn},
+	        </if>
+	        <!-- 🚀 비밀번호는 변경 요청이 있을 때만 암호화해서 넘어온다고 가정 -->
+	        <if test="mbrPassword != null and mbrPassword != ''">
+	            MBR_PASSWORD = #{mbrPassword}
+	        </if>
+	    </set>
+	    WHERE MBR_ID = #{mbrId}
+	</update>
+	<!-- 🚀 1. 검색 조건을 재사용하기 위한 동적 SQL 조각 -->
+    <sql id="memberSearchCondition">
+        <!-- 🚀 2. 권한 조건 분기: 프론트에서 authCd를 넘기면 관리자만, 안 넘기면 일반 유저만 조회 -->
+        <choose>
+            <when test="authCd == 'ROLE_ADMIN'">
+                AND MBR_AUTH_CD = 'ROLE_ADMIN'
+            </when>
+            <otherwise>
+                AND MBR_AUTH_CD != 'ROLE_ADMIN'
+            </otherwise>
+        </choose>
+
+        <!-- 🚀 3. 상태 조건: 전체보기일 경우 useYn 파라미터가 없으므로 생략됨 -->
+        <if test="useYn != null and useYn != ''">
+            AND MBR_USE_YN = #{useYn}
+        </if>
+
+        <if test="keyword != null and keyword != ''">
+            <choose>
+                <when test="searchType == 'email'">
+                    AND MBR_EMAIL LIKE CONCAT('%', #{keyword}, '%')
+                </when>
+                <when test="searchType == 'phone'">
+                    AND MBR_TELNO LIKE CONCAT('%', #{keyword}, '%')
+                </when>
+                <when test="searchType == 'name'">
+                    AND MBR_NAME LIKE CONCAT('%', #{keyword}, '%')
+                </when>
+            </choose>
+        </if>
+    </sql>
+
+    <!-- 🚀 4. 페이징 적용된 동적 목록 조회 (WHERE 1=1을 주어 AND로 이어붙이게 설계) -->
+	<select id="findAllMembersPaged" resultMap="memberResultMap">
+        SELECT *
+        FROM MEMBER
+        WHERE 1=1
+        <include refid="memberSearchCondition" />
+        ORDER BY MBR_JOIN_DATE DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <!-- 🚀 5. 동적 총 개수 조회 -->
+    <select id="countAllMembers" resultType="int">
+        SELECT COUNT(*)
+        FROM MEMBER
+        WHERE 1=1
+        <include refid="memberSearchCondition" />
+    </select>
+    
+	<select id="findById" resultMap="memberResultMap">
+        /* 회원정보 조회 (ID 기준) */
+        SELECT *
+        FROM MEMBER
+        WHERE MBR_ID = #{mbrId}
+    </select>
+    
+	<update id="withdrawMember">
+        /* 회원 탈퇴 (소프트 삭제 및 마스킹) - 매개변수가 3개인 관리자용 */
+        UPDATE MEMBER
+        SET MBR_USE_YN = 'N',
+            /* 🚀 탈퇴자 이메일 재가입 불가 및 UQ 충돌 방지 마스킹 */
+            MBR_EMAIL = #{maskedEmail},
+            /* 🚀 닉네임 UQ 충돌 방지 마스킹 */
+            MBR_NICKNAME = #{maskedNickname},
+            /* 🚀 리프레시 토큰 무효화 */
+            MBR_REFRESH_TOKEN = NULL
+        WHERE MBR_ID = #{mbrId}
+    </update>
+    
+	<select id="findAllMembers" resultMap="memberResultMap">
+        /* 관리자: 전체 회원 목록 조회 */
+        SELECT 
+              MBR_ID, MBR_PASSWORD, MBR_NAME, MBR_NICKNAME, MBR_EMAIL, 
+              MBR_TELNO, MBR_ZIP, MBR_ADDR, MBR_DADDR, MBR_PROFILE_FILE_NO, MBR_PROVIDER_CD, 
+              MBR_REFRESH_TOKEN, MBR_AUTH_CD, MBR_JOIN_DATE, MBR_LAST_LGN_DATE, MBR_USE_YN
+        FROM MEMBER;
+    </select>
+
+	<update id="updatePassword">
+		/* 비밀번호 변경 */
+	    UPDATE MEMBER
+	    SET MBR_PASSWORD = #{newPassword} 
+	    WHERE MBR_ID = #{mbrId}
+	</update>
+
+    <select id="existsByEmail" resultType="int">
+    	/* 이메일 중복 조회 */
+        SELECT COUNT(*) 
+        FROM MEMBER 
+        WHERE MBR_EMAIL = #{email} 
+          AND MBR_USE_YN = 'Y'
+    </select>
+
+    <update id="updateMemberInfo">
+    	/* 회원 정보 수정 */
+        UPDATE MEMBER
+        SET MBR_NAME = #{mbrName},
+            MBR_NICKNAME = #{mbrNickname},
+            MBR_TELNO = #{mbrTelno},
+            MBR_ZIP = #{mbrZip},
+            MBR_ADDR = #{mbrAddr},
+            MBR_DADDR = #{mbrDaddr}
+        WHERE MBR_ID = #{mbrId}
+    </update>
+    
+    <select id="existsByNickname" resultType="int">
+    	/* 닉네임 중복 조회 */
+        SELECT COUNT(*) 
+        FROM MEMBER 
+        WHERE MBR_NICKNAME = #{nickname} 
+          AND MBR_USE_YN = 'Y'
+    </select>
+    
+    <resultMap id="memberResultMap" type="sst.member.domain.Member">
+        <id     column="MBR_ID"            property="mbrId"/>
+        <result column="MBR_PASSWORD"      property="mbrPassword"/>
+        <result column="MBR_NAME"          property="mbrName"/>
+        <result column="MBR_NICKNAME"      property="mbrNickname"/>
+        <result column="MBR_EMAIL"         property="mbrEmail"/>
+        <result column="MBR_TELNO"         property="mbrTelno"/>
+        <result column="MBR_ZIP"           property="mbrZip"/>
+        <result column="MBR_ADDR"          property="mbrAddr"/>
+        <result column="MBR_DADDR"         property="mbrDaddr"/>
+        <result column="MBR_PROFILE_FILE_NO" property="mbrProfileFileNo"/>
+        <result column="MBR_PROVIDER_CD"   property="mbrProviderCd"/>
+        <result column="MBR_REFRESH_TOKEN" property="mbrRefreshToken"/>
+        <result column="MBR_AUTH_CD"       property="mbrAuthCd"/>
+        <result column="MBR_JOIN_DATE"     property="mbrJoinDate"/>
+        <result column="MBR_LAST_LGN_DATE" property="mbrLastLgnDate"/>
+        <result column="MBR_USE_YN"        property="mbrUseYn"/>
+        
+        <!-- profileFile 필드 안에 FileDomain 객체를 생성해서 채움 -->
+	    <association property="profileFile" javaType="sst.uploads.domain.FileDomain">
+	        <id property="fileNo" column="MBR_PROFILE_FILE_NO" /> <!-- M.MBR_PROFILE_FILE_NO 값을 F.FILE_NO로 매핑 -->
+	        <result property="fileOrgNm" column="FILE_ORG_NM" />
+	        <result property="fileSaveNm" column="FILE_SAVE_NM" />
+	        <result property="filePath" column="FILE_PATH" />
+	        <result property="fileExt" column="FILE_EXT" />
+	        <result property="fileSize" column="FILE_SIZE" />
+	        <result property="fileMimeType" column="FILE_MIME_TYPE" />
+	        <result property="fileType" column="FILE_TYPE" />
+	    </association>
+    
+    </resultMap>
+    
+    <!-- 회원 아이디로 조회 -->
+    <select id="findMemberById" resultMap="memberResultMap">
+        SELECT 
+	          M.*,
+	          F.FILE_ORG_NM, 
+	          F.FILE_SAVE_NM, 
+	          F.FILE_PATH, 
+	          F.FILE_EXT, 
+	          F.FILE_SIZE, 
+	          F.FILE_MIME_TYPE, 
+	          F.FILE_TYPE
+	    FROM MEMBER M
+	    LEFT JOIN FILE F ON M.MBR_PROFILE_FILE_NO = F.FILE_NO AND F.FILE_USE_YN = 'Y'
+	    WHERE M.MBR_ID = #{mbrId} 
+	      AND M.MBR_USE_YN = 'Y';
+    </select>
+    
+
+    <select id="findMemberByEmail" resultMap="memberResultMap">
+        <!--  회원정보 조회 
+        SELECT 
+              MBR_ID, MBR_PASSWORD, MBR_NAME, MBR_NICKNAME, MBR_EMAIL, 
+              MBR_TELNO, MBR_ZIP, MBR_ADDR, MBR_DADDR, MBR_PROFILE_FILE_NO, MBR_PROVIDER_CD, 
+              MBR_REFRESH_TOKEN, MBR_AUTH_CD, MBR_JOIN_DATE, MBR_LAST_LGN_DATE, MBR_USE_YN
+        FROM MEMBER
+        WHERE MBR_EMAIL = #{email} 
+          AND MBR_USE_YN = 'Y';
+         -->
+          
+        SELECT 
+	          M.*,
+	          F.FILE_ORG_NM, 
+	          F.FILE_SAVE_NM, 
+	          F.FILE_PATH, 
+	          F.FILE_EXT, 
+	          F.FILE_SIZE, 
+	          F.FILE_MIME_TYPE, 
+	          F.FILE_TYPE
+	    FROM MEMBER M
+	    LEFT JOIN FILE F ON M.MBR_PROFILE_FILE_NO = F.FILE_NO AND F.FILE_USE_YN = 'Y'
+	    WHERE M.MBR_EMAIL = #{email} 
+	      AND M.MBR_USE_YN = 'Y';
+    </select>
+    
+    <insert id="saveMember" parameterType="sst.member.domain.Member" useGeneratedKeys="true" keyProperty="mbrId">
+	    INSERT INTO MEMBER (
+	          MBR_PASSWORD, MBR_NAME, MBR_NICKNAME, MBR_EMAIL, MBR_TELNO, 
+	          MBR_ZIP, MBR_ADDR, MBR_DADDR, MBR_PROVIDER_CD, MBR_AUTH_CD, 
+	          MBR_USE_YN
+	    ) VALUES (
+	          #{mbrPassword}, #{mbrName}, #{mbrNickname}, #{mbrEmail}, #{mbrTelno}, 
+	          #{mbrZip}, #{mbrAddr}, #{mbrDaddr}, #{mbrProviderCd}, #{mbrAuthCd}, 
+	          #{mbrUseYn}
+	    )
+	</insert>
+	
+	<!-- 프로필 이미지 파일 번호 업데이트 -->
+	<update id="updateMemberProfileFileNo">
+	    UPDATE MEMBER
+	    SET MBR_PROFILE_FILE_NO = #{fileNo}
+	    WHERE MBR_ID = #{mbrId}
+	</update>
+    
+    <update id="updateRefreshTokenById">
+        /* 리프레시토큰 수정 */
+        UPDATE MEMBER
+        SET MBR_REFRESH_TOKEN = #{refreshToken}
+        WHERE MBR_ID = #{mbrId};
+    </update>
+    
+    <update id="updateLastLoginDate">
+        /* 마지막 로그인 일시 업데이트 */
+        UPDATE MEMBER
+        SET MBR_LAST_LGN_DATE = NOW()
+        WHERE MBR_ID = #{mbrId};
+    </update>
+</mapper>

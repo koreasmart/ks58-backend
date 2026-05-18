@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="sst.content.mapper.PlaceSeeMapper">
+	
+	<update id="updatePlace">
+	    UPDATE PLACE
+	    SET PLC_NAME = #{dto.plcName},
+	        PLC_ADDR = #{dto.plcAddr},
+	        /* 🚀 새로 추가된 필드들 업데이트 로직 반영 */
+	        PLC_DADDR = #{dto.plcDaddr},
+	        PLC_TELNO = #{dto.plcTelno},
+	        PLC_HOMEPAGE = #{dto.plcHomepage},
+	        PLC_OVERVIEW = #{dto.plcOverview},
+	        PLC_FLT_CD = #{dto.plcFltCd},
+	        PLC_LAT = #{dto.plcLat},
+	        PLC_LOT = #{dto.plcLot},
+	        PLC_UP_DATE = NOW()
+	    WHERE PLC_NO = #{plcNo}
+	</update>
+	
+	<update id="updatePlaceSee">
+	    UPDATE PLACE_SEE
+	    SET SEE_INFOCENTER = #{dto.seeInfocenter},
+	        SEE_PARKING = #{dto.seeParking},
+	        SEE_RESTDATE = #{dto.seeRestdate},
+	        SEE_USETIME = #{dto.seeUsetime},
+	        SEE_UP_DATE = NOW()
+	    WHERE SEE_PLC_NO = #{plcNo}
+	</update>
+
+
+	<sql id="seeSearchCondition">
+        <if test="keyword != null and keyword != ''">
+            AND p.PLC_NAME LIKE CONCAT('%', #{keyword}, '%')
+        </if>
+    </sql>
+
+    <!-- 🚀 페이징 적용된 볼거리 목록 조회 -->
+    <select id="findSeeListPaged" resultType="sst.content.dto.SeeResponseDto">
+        SELECT
+            p.PLC_NO            AS plcNo,
+            p.PLC_NAME          AS plcName,
+            p.PLC_ADDR          AS plcAddr,
+            p.PLC_AVG_RATING    AS plcAvgRating,
+            p.PLC_USE_YN        AS plcUseYn
+        FROM PLACE p
+        LEFT JOIN PLACE_SEE s ON p.PLC_NO = s.SEE_PLC_NO
+        WHERE p.PLC_CAT_CD = 'PLC001'
+        
+        <!-- 🚀 해결: 속성은 쌍따옴표("")로 감싸고, 안쪽의 문자는 홑따옴표('') + .toString()을 사용하여 강제로 String 타입으로 변환합니다. -->
+        <choose>
+            <when test="useYn == 'N'.toString()">
+                AND p.PLC_USE_YN = 'N' /* 휴지통 조회 */
+            </when>
+            <when test="useYn == 'ALL'.toString()">
+                /* 전체 조회 (조건 없음) */
+            </when>
+            <otherwise>
+                AND p.PLC_USE_YN = 'Y' /* 기본값: 정상 항목만 조회 */
+            </otherwise>
+        </choose>
+
+        <if test="rgnCd != null">
+            AND p.PLC_RGN_CD = #{rgnCd}
+        </if>
+        <include refid="seeSearchCondition" />
+        ORDER BY p.PLC_NO DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <!-- 🚀 카운트 쿼리도 똑같이 적용 -->
+    <select id="countSeeListByRegion" resultType="int">
+        SELECT COUNT(*)
+        FROM PLACE p
+        WHERE p.PLC_CAT_CD = 'PLC001'
+        
+        <choose>
+            <when test="useYn == 'N'.toString()">
+                AND p.PLC_USE_YN = 'N'
+            </when>
+            <when test="useYn == 'ALL'.toString()">
+                
+            </when>
+            <otherwise>
+                AND p.PLC_USE_YN = 'Y'
+            </otherwise>
+        </choose>
+
+        <if test="rgnCd != null">
+            AND p.PLC_RGN_CD = #{rgnCd}
+        </if>
+        <include refid="seeSearchCondition" />
+    </select>
+	
+    <!-- 지역코드로 볼거리 목록 조회 -->
+    <select id="findByRegion" resultType="sst.content.dto.SeeResponseDto">
+        SELECT
+            p.PLC_NO            AS plcNo,
+            p.PLC_ID            AS plcId,
+            p.PLC_RGN_CD        AS plcRgnCd,
+            p.PLC_NAME          AS plcName,
+            p.PLC_ADDR          AS plcAddr,
+            p.PLC_LAT           AS plcLat,
+            p.PLC_LOT           AS plcLot,
+            p.PLC_TELNO         AS plcTelno,
+            p.PLC_OVERVIEW      AS plcOverview,
+            p.PLC_MAIN_IMG_URL  AS plcMainImgUrl,
+            p.PLC_THUM_IMG_URL  AS plcThumImgUrl,
+            p.PLC_FLT_CD        AS plcFltCd,
+            p.PLC_AVG_RATING    AS plcAvgRating,
+			p.PLC_REVIEW_CNT    AS plcReviewCnt, 
+            s.SEE_USETIME       AS seeUsetime,
+            s.SEE_PARKING       AS seeParking,
+            s.SEE_RESTDATE      AS seeRestdate,
+            s.SEE_INFOCENTER    AS seeInfocenter
+        FROM PLACE p
+        LEFT JOIN PLACE_SEE s ON p.PLC_NO = s.SEE_PLC_NO
+        WHERE p.PLC_CAT_CD = 'PLC001'
+        <if test="rgnCd != null">
+            AND p.PLC_RGN_CD = #{rgnCd}
+        </if>
+        ORDER BY p.PLC_NO DESC
+    </select>
+
+    <!-- 볼거리 상세 조회 -->
+    <select id="findById" resultType="sst.content.dto.SeeResponseDto">
+        SELECT
+            p.PLC_NO            AS plcNo,
+            p.PLC_ID            AS plcId,
+            p.PLC_RGN_CD        AS plcRgnCd,
+            p.PLC_NAME          AS plcName,
+            p.PLC_ADDR          AS plcAddr,
+            p.PLC_DADDR         AS plcDaddr,
+            p.PLC_LAT           AS plcLat,
+            p.PLC_LOT           AS plcLot,
+            p.PLC_TELNO         AS plcTelno,
+            p.PLC_HOMEPAGE      AS plcHomepage,
+            p.PLC_OVERVIEW      AS plcOverview,
+            p.PLC_MAIN_IMG_URL  AS plcMainImgUrl,
+            p.PLC_THUM_IMG_URL  AS plcThumImgUrl,
+            p.PLC_FLT_CD        AS plcFltCd,
+            s.SEE_USETIME       AS seeUsetime,
+            s.SEE_PARKING       AS seeParking,
+            s.SEE_RESTDATE      AS seeRestdate,
+            s.SEE_INFOCENTER    AS seeInfocenter
+        FROM PLACE p
+        LEFT JOIN PLACE_SEE s ON p.PLC_NO = s.SEE_PLC_NO
+        WHERE p.PLC_NO = #{plcNo}
+    </select>
+    
+    <!-- 🚀 태그 목록 조회 -->
+	<select id="findTagCodesByPlcNo" resultType="string">
+	    SELECT PTAG_TAG_CD 
+	    FROM PLACE_TAG_MAP 
+	    WHERE PTAG_PLC_NO = #{plcNo}
+	</select>
+	
+	<!-- 🚀 태그 물리 삭제 -->
+	<delete id="deleteTagsByPlcNo">
+	    DELETE FROM PLACE_TAG_MAP 
+	    WHERE PTAG_PLC_NO = #{plcNo}
+	</delete>
+	
+	<!-- 🚀 다중 태그 삽입 -->
+	<insert id="insertTags">
+	    INSERT INTO PLACE_TAG_MAP (PTAG_PLC_NO, PTAG_TAG_CD) 
+	    VALUES 
+	    <foreach collection="tagCodes" item="code" separator=",">
+	        (#{plcNo}, #{code})
+	    </foreach>
+	</insert>
+	
+	<!-- 🚀 장소 소프트 삭제 (상태 변경) -->
+	<update id="updatePlaceUseYn">
+	    UPDATE PLACE 
+	    SET PLC_USE_YN = #{useYn}, 
+	        PLC_UP_DATE = NOW() 
+	    WHERE PLC_NO = #{plcNo}
+	</update>
+
+</mapper>

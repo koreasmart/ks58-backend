@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="sst.search.mapper.SearchMapper">
+
+    <!-- ========================================== -->
+    <!-- 1. 장소(PLACE) 검색 -->
+    <!-- ========================================== -->
+    <select id="countPlacesByKeyword" resultType="int">
+        SELECT COUNT(*) 
+        FROM PLACE P
+        WHERE P.PLC_USE_YN = 'Y'
+          AND (P.PLC_NAME LIKE CONCAT('%', #{keyword}, '%') OR P.PLC_OVERVIEW LIKE CONCAT('%', #{keyword}, '%'))
+        <!-- 🚀 OGNL 문자열 파싱 에러를 막기 위해 "ALL" 쌍따옴표 사용 -->
+        <if test='category != null and category != "ALL"'>
+          AND P.PLC_CAT_CD = #{category}
+        </if>
+    </select>
+
+    <select id="selectPlacesByKeywordPaged" resultType="sst.content.dto.PlaceCardDto">
+        SELECT
+            P.PLC_NO AS plcNo, 
+            P.PLC_ID AS plcId, 
+            C.CMM_CD_NAME AS plcCatCd, 
+            P.PLC_NAME AS plcName, 
+            P.PLC_OVERVIEW AS plcOverview, 
+            P.PLC_MAIN_IMG_URL AS plcMainImgUrl,
+            P.PLC_ADDR AS plcAddr,              
+            P.PLC_AVG_RATING AS plcAvgRating,   
+            P.PLC_REVIEW_CNT AS plcReviewCnt
+        FROM PLACE P
+        LEFT JOIN CMM_CODE C 
+          ON P.PLC_CAT_CD = C.CMM_CD AND C.CMM_GROUP_CD = 'GRP002'
+        WHERE P.PLC_USE_YN = 'Y'
+          AND (P.PLC_NAME LIKE CONCAT('%', #{keyword}, '%') OR P.PLC_OVERVIEW LIKE CONCAT('%', #{keyword}, '%'))
+        <!-- 🚀 카테고리 필터링 (동일하게 쌍따옴표 적용) -->
+        <if test='category != null and category != "ALL"'>
+          AND P.PLC_CAT_CD = #{category}
+        </if>
+        ORDER BY P.PLC_REG_DATE DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
+
+    <!-- ========================================== -->
+    <!-- 2. 커뮤니티(COMMUNITY) 검색 -->
+    <!-- ========================================== -->
+    <select id="countCommunitiesByKeyword" resultType="int">
+        SELECT COUNT(DISTINCT C.COMM_NO)
+        FROM COMMUNITY C
+        LEFT JOIN COMMUNITY_HASHTAG CH ON C.COMM_NO = CH.CHTG_COMM_NO
+        LEFT JOIN HASHTAG H ON CH.CHTG_HTAG_NO = H.HTAG_NO
+        WHERE C.COMM_USE_YN = 'Y'
+          AND (
+               C.COMM_TITLE LIKE CONCAT('%', #{keyword}, '%')
+               OR C.COMM_CONTENT LIKE CONCAT('%', #{keyword}, '%')
+               OR H.HTAG_TAG_NAME LIKE CONCAT('%', #{keyword}, '%')
+              )
+    </select>
+
+    <select id="selectCommunitiesByKeywordPaged" resultType="sst.community.domain.Community">
+        SELECT
+            C.COMM_NO AS commNo, 
+            C.COMM_MBR_ID AS commMbrId, 
+            M.MBR_NICKNAME AS mbrNickname,
+            C.COMM_CAT_CD AS commCatCd, 
+            C.COMM_MAIN_IMG_URL AS commMainImgUrl,
+            C.COMM_TITLE AS commTitle, 
+            C.COMM_CONTENT AS commContent,
+            C.COMM_INQIRE_CNT AS commInqireCnt, 
+            C.COMM_LIKE_CNT AS commLikeCnt, 
+            C.COMM_CMNT_CNT AS commCmntCnt,
+            DATE_FORMAT(C.COMM_REG_DATE, '%Y-%m-%d') AS commRegDate
+        FROM COMMUNITY C
+        JOIN MEMBER M ON C.COMM_MBR_ID = M.MBR_ID
+        LEFT JOIN COMMUNITY_HASHTAG CH ON C.COMM_NO = CH.CHTG_COMM_NO
+        LEFT JOIN HASHTAG H ON CH.CHTG_HTAG_NO = H.HTAG_NO
+        WHERE C.COMM_USE_YN = 'Y'
+          AND (
+               C.COMM_TITLE LIKE CONCAT('%', #{keyword}, '%')
+               OR C.COMM_CONTENT LIKE CONCAT('%', #{keyword}, '%')
+               OR H.HTAG_TAG_NAME LIKE CONCAT('%', #{keyword}, '%')
+              )
+        <!-- 🚀 500 에러의 핵심 원인이었던 DISTINCT 제거 후 GROUP BY 적용 -->
+        GROUP BY C.COMM_NO
+        ORDER BY C.COMM_NO DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
+</mapper>

@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="sst.content.mapper.PlacePlayMapper">
+
+	<!-- 🚀 공통 장소 정보 수정 -->
+    <update id="updatePlace">
+        UPDATE PLACE
+        SET PLC_NAME = #{dto.plcName},
+            PLC_ADDR = #{dto.plcAddr},
+            PLC_DADDR = #{dto.plcDaddr},
+            PLC_TELNO = #{dto.plcTelno},
+            PLC_HOMEPAGE = #{dto.plcHomepage},
+            PLC_OVERVIEW = #{dto.plcOverview},
+            PLC_UP_DATE = NOW()
+        WHERE PLC_NO = #{plcNo}
+    </update>
+    
+    <!-- 🚀 놀거리 상세 정보 수정 (빈 문자열이 들어올 경우 NULL로 처리하여 날짜 파싱 에러 방지) -->
+    <update id="updatePlacePlay">
+        UPDATE PLACE_PLAY
+        SET PLAY_INFOCENTER = #{dto.playInfocenter},
+            PLAY_PARKING = #{dto.playParking},
+            PLAY_RESTDATE = #{dto.playRestdate},
+            PLAY_USETIME = #{dto.playUsetime},
+            PLAY_EVENT_START = NULLIF(#{dto.playEventStart}, ''),
+            PLAY_EVENT_END = NULLIF(#{dto.playEventEnd}, ''),
+            PLAY_UP_DATE = NOW()
+        WHERE PLAY_PLC_NO = #{plcNo}
+    </update>
+    
+
+	<sql id="playSearchCondition">
+        <if test="keyword != null and keyword != ''">
+            AND p.PLC_NAME LIKE CONCAT('%', #{keyword}, '%')
+        </if>
+    </sql>
+
+    <select id="findPlayListPaged" resultType="sst.content.dto.PlayResponseDto">
+        SELECT
+            p.PLC_NO            AS plcNo,
+            p.PLC_NAME          AS plcName,
+            p.PLC_ADDR          AS plcAddr,
+            p.PLC_AVG_RATING    AS plcAvgRating,
+            p.PLC_USE_YN        AS plcUseYn /* 🚀 혹시 모르니 데이터에 상태값 포함 */
+        FROM PLACE p
+        LEFT JOIN PLACE_PLAY pl ON p.PLC_NO = pl.PLAY_PLC_NO
+        WHERE p.PLC_CAT_CD = 'PLC002'
+        
+        <!-- 🚀 기존 AND p.PLC_USE_YN = 'Y'를 지우고 아래 choose 구문 삽입 -->
+        <choose>
+            <when test="useYn == 'N'.toString()">
+                AND p.PLC_USE_YN = 'N'
+            </when>
+            <when test="useYn == 'ALL'.toString()">
+                /* 전체 조회 */
+            </when>
+            <otherwise>
+                AND p.PLC_USE_YN = 'Y'
+            </otherwise>
+        </choose>
+
+        <if test="rgnCd != null">
+            AND p.PLC_RGN_CD = #{rgnCd}
+        </if>
+        <include refid="playSearchCondition" />
+        ORDER BY p.PLC_NO DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <!-- 2. countPlayListByRegion 쿼리 수정 -->
+    <select id="countPlayListByRegion" resultType="int">
+        SELECT COUNT(*)
+        FROM PLACE p
+        WHERE p.PLC_CAT_CD = 'PLC002'
+        
+        <!-- 🚀 리스트 쿼리와 똑같이 상태 조건 추가 -->
+        <choose>
+            <when test="useYn == 'N'.toString()">
+                AND p.PLC_USE_YN = 'N'
+            </when>
+            <when test="useYn == 'ALL'.toString()">
+            </when>
+            <otherwise>
+                AND p.PLC_USE_YN = 'Y'
+            </otherwise>
+        </choose>
+
+        <if test="rgnCd != null">
+            AND p.PLC_RGN_CD = #{rgnCd}
+        </if>
+        <include refid="playSearchCondition" />
+    </select>
+
+    <!-- 3. 🚀 맨 아래에 상태 업데이트 쿼리 추가 -->
+    <update id="updatePlaceUseYn">
+        UPDATE PLACE
+        SET PLC_USE_YN = #{useYn},
+            PLC_UP_DATE = NOW()
+        WHERE PLC_NO = #{plcNo}
+    </update>
+    
+    <select id="findByRegion" resultType="sst.content.dto.PlayResponseDto">
+        SELECT
+            p.PLC_NO            AS plcNo,
+            p.PLC_ID            AS plcId,
+            p.PLC_RGN_CD        AS plcRgnCd,
+            p.PLC_NAME          AS plcName,
+            p.PLC_ADDR          AS plcAddr,
+            p.PLC_LAT           AS plcLat,
+            p.PLC_LOT           AS plcLot,
+            p.PLC_TELNO         AS plcTelno,
+            p.PLC_OVERVIEW      AS plcOverview,
+            p.PLC_MAIN_IMG_URL  AS plcMainImgUrl,
+            p.PLC_THUM_IMG_URL  AS plcThumImgUrl,
+            p.PLC_FLT_CD        AS plcFltCd,
+            p.PLC_AVG_RATING    AS plcAvgRating,
+			p.PLC_REVIEW_CNT    AS plcReviewCnt,
+            pl.PLAY_INFOCENTER  AS playInfocenter,
+            pl.PLAY_PARKING     AS playParking,
+            pl.PLAY_RESTDATE    AS playRestdate,
+            pl.PLAY_USETIME     AS playUsetime,
+            pl.PLAY_EVENT_START AS playEventStart,
+            pl.PLAY_EVENT_END   AS playEventEnd
+        FROM PLACE p
+        LEFT JOIN PLACE_PLAY pl ON p.PLC_NO = pl.PLAY_PLC_NO
+        WHERE p.PLC_CAT_CD = 'PLC002'
+        <if test="rgnCd != null">
+            AND p.PLC_RGN_CD = #{rgnCd}
+        </if>
+        ORDER BY p.PLC_NO DESC
+    </select>
+
+    <select id="findById" resultType="sst.content.dto.PlayResponseDto">
+        SELECT
+            p.PLC_NO            AS plcNo,
+            p.PLC_ID            AS plcId,
+            p.PLC_RGN_CD        AS plcRgnCd,
+            p.PLC_NAME          AS plcName,
+            p.PLC_ADDR          AS plcAddr,
+            p.PLC_DADDR         AS plcDaddr,
+            p.PLC_LAT           AS plcLat,
+            p.PLC_LOT           AS plcLot,
+            p.PLC_TELNO         AS plcTelno,
+            p.PLC_HOMEPAGE      AS plcHomepage,
+            p.PLC_OVERVIEW      AS plcOverview,
+            p.PLC_MAIN_IMG_URL  AS plcMainImgUrl,
+            p.PLC_THUM_IMG_URL  AS plcThumImgUrl,
+            p.PLC_FLT_CD        AS plcFltCd,
+            pl.PLAY_INFOCENTER  AS playInfocenter,
+            pl.PLAY_PARKING     AS playParking,
+            pl.PLAY_RESTDATE    AS playRestdate,
+            pl.PLAY_USETIME     AS playUsetime,
+            pl.PLAY_EVENT_START AS playEventStart,
+            pl.PLAY_EVENT_END   AS playEventEnd
+        FROM PLACE p
+        LEFT JOIN PLACE_PLAY pl ON p.PLC_NO = pl.PLAY_PLC_NO
+        WHERE p.PLC_NO = #{plcNo}
+    </select>
+
+</mapper>

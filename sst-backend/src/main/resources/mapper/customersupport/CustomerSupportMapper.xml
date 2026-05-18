@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="sst.customersupport.mapper.CustomerSupportMapper">
+
+    <!-- 공지사항 조회 -->
+    <select id="selectNoticeList"
+        resultType="sst.customersupport.domain.CustomerSupport">
+        
+	    SELECT
+	          CS_NO          AS csNo
+	        , CS_CAT_CD      AS csCatCd
+	        , CS_WRTER_NO    AS csWrterNo
+	        , CS_TITLE       AS csTitle
+	        , CS_CONTENT     AS csContent
+	        , CS_INQIRE_CNT  AS csInqireCnt
+	        , CS_PIN_YN      AS csPinYn
+	        , CS_REG_DATE    AS csRegDate
+	        , CS_UP_DATE     AS csUpDate
+	        , CS_USE_YN      AS csUseYn
+	    FROM CUSTOMER_SUPPORT
+	    WHERE CS_CAT_CD = 'CSS001'
+	      AND CS_USE_YN = 'Y'
+	    ORDER BY CS_PIN_YN DESC, CS_REG_DATE DESC
+	</select>
+
+
+    <!-- FAQ 조회 -->
+    <select id="selectFaqList"
+        resultType="sst.customersupport.domain.CustomerSupport">
+
+	    SELECT
+	          CS_NO          AS csNo
+	        , CS_CAT_CD      AS csCatCd
+	        , CS_WRTER_NO    AS csWrterNo
+	        , CS_TITLE       AS csTitle
+	        , CS_CONTENT     AS csContent
+	        , CS_INQIRE_CNT  AS csInqireCnt
+	        , CS_PIN_YN      AS csPinYn
+	        , CS_REG_DATE    AS csRegDate
+	        , CS_UP_DATE     AS csUpDate
+	        , CS_USE_YN      AS csUseYn
+	    FROM CUSTOMER_SUPPORT
+	    WHERE CS_CAT_CD = 'CSS002'
+	      AND CS_USE_YN = 'Y'
+	    ORDER BY CS_PIN_YN DESC, CS_REG_DATE DESC
+	</select>
+	
+	<!-- 관리자 공지사항 작성 -->
+	<insert id="insertNotice" parameterType="sst.customersupport.domain.CustomerSupport">
+	    INSERT INTO CUSTOMER_SUPPORT (
+	          CS_CAT_CD
+	        , CS_WRTER_NO
+	        , CS_TITLE
+	        , CS_CONTENT
+	        , CS_INQIRE_CNT
+	        , CS_PIN_YN
+	        , CS_REG_DATE
+	        , CS_USE_YN
+	    ) VALUES (
+	          'CSS001'
+	        , #{csWrterNo}
+	        , #{csTitle}
+	        , #{csContent}
+	        , 0
+	        , IFNULL(#{csPinYn}, 'N')
+	        , NOW()
+	        , 'Y'
+	    )
+	</insert>
+	
+	<!-- 관리자 공지사항 수정 -->
+	<update id="updateNotice" parameterType="sst.customersupport.domain.CustomerSupport">
+	    UPDATE CUSTOMER_SUPPORT
+	       SET CS_TITLE = #{csTitle}
+	         , CS_CONTENT = #{csContent}
+	         , CS_PIN_YN = IFNULL(#{csPinYn}, 'N')
+	         , CS_UP_DATE = NOW()
+	     WHERE CS_NO = #{csNo}
+	       AND CS_CAT_CD = 'CSS001'
+	       AND CS_USE_YN = 'Y'
+	</update>
+	
+	<!-- 관리자 공지사항 삭제 -->
+	<update id="deleteNotice" parameterType="long">
+	    UPDATE CUSTOMER_SUPPORT
+	       SET CS_USE_YN = 'N'
+	         , CS_UP_DATE = NOW()
+	     WHERE CS_NO = #{csNo}
+	       AND CS_CAT_CD = 'CSS001'
+	</update>
+	
+	<!-- FAQ 작성 -->
+	<insert id="insertFaq"
+	        parameterType="sst.customersupport.domain.CustomerSupport">
+	
+	    INSERT INTO CUSTOMER_SUPPORT (
+	          CS_CAT_CD
+	        , CS_WRTER_NO
+	        , CS_TITLE
+	        , CS_CONTENT
+	        , CS_INQIRE_CNT
+	        , CS_PIN_YN
+	        , CS_REG_DATE
+	        , CS_USE_YN
+	    ) VALUES (
+	          'CSS002'
+	        , #{csWrterNo}
+	        , #{csTitle}
+	        , #{csContent}
+	        , 0
+	        , 'N'
+	        , NOW()
+	        , 'Y'
+	    )
+	</insert>
+	
+	<!-- FAQ 수정 -->
+	<update id="updateFaq"
+	        parameterType="sst.customersupport.domain.CustomerSupport">
+	
+	    UPDATE CUSTOMER_SUPPORT
+	       SET CS_TITLE = #{csTitle}
+	         , CS_CONTENT = #{csContent}
+	         , CS_PIN_YN = IFNULL(#{csPinYn}, 'N')
+	         , CS_UP_DATE = NOW()
+	     WHERE CS_NO = #{csNo}
+	       AND CS_CAT_CD = 'CSS002'
+	</update>
+	
+	<!-- FAQ 삭제 -->
+	<update id="deleteFaq"
+	        parameterType="long">
+	
+	    UPDATE CUSTOMER_SUPPORT
+	       SET CS_USE_YN = 'N'
+	         , CS_UP_DATE = NOW()
+	     WHERE CS_NO = #{csNo}
+	       AND CS_CAT_CD = 'CSS002'
+	</update>
+
+</mapper>

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="sst.content.mapper.CodeMasterMapper">
+
+    <select id="selectPlaceCardsByRegionCode"
+            parameterType="int"
+            resultType="sst.content.dto.PlaceCardDto">
+
+        SELECT
+            PLC_NO AS plcNo,
+            PLC_ID AS plcId,
+            PLC_CAT_CD AS plcCatCd,
+            PLC_NAME AS plcName,
+            PLC_OVERVIEW AS plcOverview,
+            PLC_MAIN_IMG_URL AS plcMainImgUrl
+        FROM PLACE
+        WHERE PLC_RGN_CD = #{regionCode}
+
+    </select>
+
+</mapper>

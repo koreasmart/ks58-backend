@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="sst.content.mapper.PlaceImgMapper">
+
+  <!-- 장소 이미지 목록 조회 -->
+  <select id="findByPlcNo" resultType="sst.content.dto.PlaceImgDto">
+    SELECT
+      PIMG_NO           AS pimgNo,
+      PIMG_PLC_NO       AS pimgPlcNo,
+      PIMG_NAME         AS pimgName,
+      PIMG_OG_IMG_URL   AS pimgOgImgUrl,
+      PIMG_THUM_IMG_URL AS pimgThumImgUrl,
+      PIMG_SORT_ORDR    AS pimgSortOrdr
+    FROM PLACE_IMG
+    WHERE PIMG_PLC_NO = #{plcNo}
+    ORDER BY PIMG_SORT_ORDR ASC
+  </select>
+
+</mapper>

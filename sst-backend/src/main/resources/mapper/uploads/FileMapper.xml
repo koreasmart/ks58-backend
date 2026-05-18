@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="sst.uploads.mapper.FileMapper">
+	
+	<!-- 파일 테이믈 Insert  -->
+	<insert id="insertFile"
+            useGeneratedKeys="true"
+            keyProperty="fileNo"
+            keyColumn="FILE_NO"
+            parameterType="sst.uploads.domain.FileDomain">
+        INSERT INTO FILE (
+            FILE_ORG_NM,
+            FILE_SAVE_NM,
+            FILE_PATH,
+            FILE_EXT,
+            FILE_SIZE,
+            FILE_MIME_TYPE,
+            FILE_TYPE,
+            FILE_REG_DATE,
+            FILE_USE_YN
+        )
+        VALUES (
+            #{fileOrgNm},
+            #{fileSaveNm},
+            #{filePath},
+            #{fileExt},
+            #{fileSize},
+            #{fileMimeType},
+            #{fileType},
+            NOW(),
+            'Y'
+        )
+    </insert>
+
+</mapper>

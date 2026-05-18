@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="sst.community.comment.mapper.CommentMapper">
+
+<!--  > -->
+    <sql id="adminCommentSearchCondition">
+        <if test="keyword != null and keyword != ''">
+            <choose>
+                <when test='searchType == "content"'> AND c.CMNT_CONTENT LIKE CONCAT('%', #{keyword}, '%') </when>
+                <when test='searchType == "writer"'> AND m.MBR_NICKNAME LIKE CONCAT('%', #{keyword}, '%') </when>
+            </choose>
+        </if>
+        <choose>
+            <when test='useYn != null and useYn == "Y"'> AND c.CMNT_USE_YN = 'Y' </when>
+            <when test='useYn != null and useYn == "N"'>
+                AND c.CMNT_USE_YN = 'N'
+                AND (SELECT COUNT(*) FROM REPORT Rpt WHERE Rpt.RPT_CMNT_NO = c.CMNT_NO AND Rpt.RPT_STATUS_CD != 'RST004') &lt; 5
+            </when>
+            <when test='useYn != null and useYn == "B"'>
+                AND c.CMNT_USE_YN = 'N'
+                AND (SELECT COUNT(*) FROM REPORT Rpt WHERE Rpt.RPT_CMNT_NO = c.CMNT_NO AND Rpt.RPT_STATUS_CD != 'RST004') &gt;= 5
+            </when>
+        </choose>
+    </sql>
+
+    <select id="adminFindCommentListPaged" resultType="sst.community.comment.dto.AdminCommentResponseDto">
+	    SELECT
+	        c.CMNT_NO AS cmntNo, 
+	        
+	        <!-- 🚀 수정 1: 기존 c.CMNT_COMM_NO AS cmntCommNo 였던 것을 프론트/DTO 기대값인 commNo로 변경 -->
+	        c.CMNT_COMM_NO AS commNo, 
+	        
+	        <!-- 🚀 추가 1: 관리자가 어떤 게시글인지 알 수 있도록 글 제목 추가 -->
+	        post.COMM_TITLE AS commTitle, 
+	        
+	        c.CMNT_MBR_ID AS cmntMbrId, 
+	        c.CMNT_CONTENT AS cmntContent, 
+	        DATE_FORMAT(c.CMNT_REG_DATE, '%Y-%m-%d %H:%i') AS cmntRegDate, 
+	        c.CMNT_USE_YN AS cmntUseYn, 
+	        m.MBR_NICKNAME AS nickname
+	    FROM COMMENT c
+	    JOIN MEMBER m ON c.CMNT_MBR_ID = m.MBR_ID
+	    
+	    <!-- 🚀 추가 2: 커뮤니티(게시글) 테이블 조인 추가 -->
+	    JOIN COMMUNITY post ON c.CMNT_COMM_NO = post.COMM_NO 
+	    
+	    WHERE 1=1
+	    <include refid="adminCommentSearchCondition"/>
+	    ORDER BY c.CMNT_NO DESC
+	    LIMIT #{offset}, #{size}
+	</select>
+
+    <select id="adminCountCommentList" resultType="int">
+        SELECT COUNT(*)
+        FROM COMMENT c
+        JOIN MEMBER m ON c.CMNT_MBR_ID = m.MBR_ID
+        WHERE 1=1
+        <include refid="adminCommentSearchCondition"/>
+    </select>
+
+    <update id="adminUpdateCommentUseYn">
+        UPDATE COMMENT 
+        SET CMNT_USE_YN = #{useYn}, 
+            CMNT_UP_DATE = NOW() 
+        WHERE CMNT_NO = #{cmtNo}
+    </update>
+
+
+	<update id="updateCommentUseYn">
+	    UPDATE COMMENT SET CMNT_USE_YN = #{useYn}, CMNT_UP_DATE = NOW() WHERE CMNT_NO = #{cmntNo}
+	</update>
+	
+	<select id="findCommNoByCmntNo" resultType="long">
+	    SELECT CMNT_COMM_NO FROM COMMENT WHERE CMNT_NO = #{cmntNo}
+	</select>
+	
+	<!-- 댓글 수 동기화 -->
+	<update id="syncCommentCount" parameterType="long">
+	    UPDATE COMMUNITY
+	    SET COMM_CMNT_CNT = (
+	        SELECT COUNT(*)
+	        FROM COMMENT
+	        WHERE CMNT_COMM_NO = #{commNo} AND CMNT_USE_YN = 'Y'
+	    )
+	    WHERE COMM_NO = #{commNo}
+	</update>
+
+    <!-- 댓글 목록 조회 -->
+    <select id="getCommentList"
+        resultType="sst.community.comment.domain.Comment">
+
+	    SELECT
+	        c.CMNT_NO AS cmntNo,
+	        c.CMNT_COMM_NO AS cmntCommNo,
+	        c.CMNT_MBR_ID AS cmntMbrId,
+	        c.CMNT_CONTENT AS cmntContent,
+	        c.CMNT_REG_DATE AS cmntRegDate,
+	        c.CMNT_UP_DATE AS cmntUpDate,
+	        c.CMNT_USE_YN AS cmntUseYn,
+	        m.MBR_NICKNAME AS mbrNickname
+	    FROM `COMMENT` c
+	    JOIN MEMBER m
+	        ON c.CMNT_MBR_ID = m.MBR_ID
+	    WHERE c.CMNT_COMM_NO = #{commNo}
+	      AND c.CMNT_USE_YN = 'Y'
+	    ORDER BY c.CMNT_REG_DATE DESC
+	
+	</select>
+	
+	<!-- 댓글 등록 -->
+    <insert id="insertComment"
+        parameterType="sst.community.comment.domain.Comment">
+
+        INSERT INTO `COMMENT` (
+            CMNT_COMM_NO,
+            CMNT_MBR_ID,
+            CMNT_CONTENT,
+            CMNT_REG_DATE,
+            CMNT_USE_YN
+        ) VALUES (
+            #{cmntCommNo},
+            #{cmntMbrId},
+            #{cmntContent},
+            NOW(),
+            'Y'
+        )
+
+    </insert>
+
+    <!-- 댓글 수정 -->
+    <update id="updateComment"
+        parameterType="sst.community.comment.domain.Comment">
+
+        UPDATE `COMMENT`
+        SET
+            CMNT_CONTENT = #{cmntContent},
+            CMNT_UP_DATE = NOW()
+        WHERE CMNT_NO = #{cmntNo}
+
+    </update>
+
+    <!-- 댓글 삭제 -->
+    <update id="deleteComment">
+
+        UPDATE `COMMENT`
+        SET
+            CMNT_USE_YN = 'N'
+        WHERE CMNT_NO = #{cmntNo}
+
+    </update>
+
+    <!-- 댓글 단건 조회 -->
+    <select id="getCommentById"
+        resultType="sst.community.comment.domain.Comment">
+
+        SELECT
+            CMNT_NO AS cmntNo,
+            CMNT_COMM_NO AS cmntCommNo,
+            CMNT_MBR_ID AS cmntMbrId,
+            CMNT_CONTENT AS cmntContent
+        FROM `COMMENT`
+        WHERE CMNT_NO = #{cmntNo}
+
+    </select>
+
+    <!-- 댓글 수 증가 -->
+    <update id="increaseCommentCount">
+        UPDATE COMMUNITY
+        SET COMM_CMNT_CNT = COMM_CMNT_CNT + 1
+        WHERE COMM_NO = #{commNo}
+    </update>
+
+    <!-- 댓글 수 감소 -->
+    <update id="decreaseCommentCount">
+
+        UPDATE COMMUNITY
+        SET COMM_CMNT_CNT =
+            CASE
+                WHEN COMM_CMNT_CNT > 0
+                THEN COMM_CMNT_CNT - 1
+                ELSE 0
+            END
+        WHERE COMM_NO = #{commNo}
+    </update>
+
+</mapper>

@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="sst.content.mapper.PlaceSleepMapper">
+
+	<!-- 🚀 공통 장소 정보 수정 -->
+    <update id="updatePlace">
+        UPDATE PLACE
+        SET PLC_NAME = #{dto.plcName},
+            PLC_ADDR = #{dto.plcAddr},
+            PLC_DADDR = #{dto.plcDaddr},
+            PLC_TELNO = #{dto.plcTelno},
+            PLC_HOMEPAGE = #{dto.plcHomepage},
+            PLC_OVERVIEW = #{dto.plcOverview},
+            PLC_UP_DATE = NOW()
+        WHERE PLC_NO = #{plcNo}
+    </update>
+    
+    <!-- 🚀 잘거리 상세 및 부대시설 정보 수정 -->
+    <update id="updatePlaceSleep">
+        UPDATE PLACE_SLEEP
+        SET SLEEP_CHECK_IN = #{dto.sleepCheckIn},
+            SLEEP_CHECK_OUT = #{dto.sleepCheckOut},
+            SLEEP_INFOCENTER = #{dto.sleepInfocenter},
+            SLEEP_PARKING = #{dto.sleepParking},
+            SLEEP_RESERVATION = #{dto.sleepReservation},
+            SLEEP_RESERVATION_URL = #{dto.sleepReservationUrl},
+            SLEEP_SUB_FACILITY = #{dto.sleepSubFacility},
+            SLEEP_BARBECU = #{dto.sleepBarbecu},
+            SLEEP_BEAUTY = #{dto.sleepBeauty},
+            SLEEP_BEVERAGE = #{dto.sleepBeverage},
+            SLEEP_BICYCLE = #{dto.sleepBicycle},
+            SLEEP_CAMPFIRE = #{dto.sleepCampfire},
+            SLEEP_FITNESS = #{dto.sleepFitness},
+            SLEEP_KARAOKE = #{dto.sleepKaraoke},
+            SLEEP_PUBLIC_BATH = #{dto.sleepPublicBath},
+            SLEEP_PUBLIC_PC = #{dto.sleepPublicPc},
+            SLEEP_SAUNA = #{dto.sleepSauna},
+            SLEEP_SEMINAR = #{dto.sleepSeminar},
+            SLEEP_SPORTS = #{dto.sleepSports},
+            SLEEP_UP_DATE = NOW()
+        WHERE SLEEP_PLC_NO = #{plcNo}
+    </update>
+	
+    <select id="findByRegion" resultType="sst.content.dto.SleepResponseDto">
+        SELECT
+            p.PLC_NO              AS plcNo,
+            p.PLC_ID              AS plcId,
+            p.PLC_RGN_CD          AS plcRgnCd,
+            p.PLC_NAME            AS plcName,
+            p.PLC_ADDR            AS plcAddr,
+            p.PLC_LAT             AS plcLat,
+            p.PLC_LOT             AS plcLot,
+            p.PLC_TELNO           AS plcTelno,
+            p.PLC_OVERVIEW        AS plcOverview,
+            p.PLC_MAIN_IMG_URL    AS plcMainImgUrl,
+            p.PLC_THUM_IMG_URL    AS plcThumImgUrl,
+            p.PLC_FLT_CD          AS plcFltCd,
+            p.PLC_AVG_RATING      AS plcAvgRating,
+            p.PLC_REVIEW_CNT      AS plcReviewCnt,
+            s.SLEEP_CHECK_IN      AS sleepCheckIn,
+            s.SLEEP_CHECK_OUT     AS sleepCheckOut,
+            s.SLEEP_INFOCENTER    AS sleepInfocenter,
+            s.SLEEP_PARKING       AS sleepParking,
+            s.SLEEP_RESERVATION   AS sleepReservation,
+            s.SLEEP_RESERVATION_URL AS sleepReservationUrl,
+            s.SLEEP_SUB_FACILITY  AS sleepSubFacility,
+            s.SLEEP_BARBECU       AS sleepBarbecu,
+            s.SLEEP_BEAUTY        AS sleepBeauty,
+            s.SLEEP_BEVERAGE      AS sleepBeverage,
+            s.SLEEP_BICYCLE       AS sleepBicycle,
+            s.SLEEP_CAMPFIRE      AS sleepCampfire,
+            s.SLEEP_FITNESS       AS sleepFitness,
+            s.SLEEP_KARAOKE       AS sleepKaraoke,
+            s.SLEEP_PUBLIC_BATH   AS sleepPublicBath,
+            s.SLEEP_PUBLIC_PC     AS sleepPublicPc,
+            s.SLEEP_SAUNA         AS sleepSauna,
+            s.SLEEP_SEMINAR       AS sleepSeminar,
+            s.SLEEP_SPORTS        AS sleepSports
+        FROM PLACE p
+        LEFT JOIN PLACE_SLEEP s ON p.PLC_NO = s.SLEEP_PLC_NO
+        WHERE p.PLC_CAT_CD = 'PLC004'
+        <if test="rgnCd != null">
+            AND p.PLC_RGN_CD = #{rgnCd}
+        </if>
+        ORDER BY p.PLC_NO DESC
+    </select>
+
+    <select id="findById" resultType="sst.content.dto.SleepResponseDto">
+        SELECT
+            p.PLC_NO              AS plcNo,
+            p.PLC_ID              AS plcId,
+            p.PLC_RGN_CD          AS plcRgnCd,
+            p.PLC_NAME            AS plcName,
+            p.PLC_ADDR            AS plcAddr,
+            p.PLC_DADDR           AS plcDaddr,
+            p.PLC_LAT             AS plcLat,
+            p.PLC_LOT             AS plcLot,
+            p.PLC_TELNO           AS plcTelno,
+            p.PLC_HOMEPAGE        AS plcHomepage,
+            p.PLC_OVERVIEW        AS plcOverview,
+            p.PLC_MAIN_IMG_URL    AS plcMainImgUrl,
+            p.PLC_THUM_IMG_URL    AS plcThumImgUrl,
+            p.PLC_FLT_CD          AS plcFltCd,
+            p.PLC_AVG_RATING      AS plcAvgRating,
+            p.PLC_REVIEW_CNT      AS plcReviewCnt,
+            s.SLEEP_CHECK_IN      AS sleepCheckIn,
+            s.SLEEP_CHECK_OUT     AS sleepCheckOut,
+            s.SLEEP_INFOCENTER    AS sleepInfocenter,
+            s.SLEEP_PARKING       AS sleepParking,
+            s.SLEEP_RESERVATION   AS sleepReservation,
+            s.SLEEP_RESERVATION_URL AS sleepReservationUrl,
+            s.SLEEP_SUB_FACILITY  AS sleepSubFacility,
+            s.SLEEP_BARBECU       AS sleepBarbecu,
+            s.SLEEP_BEAUTY        AS sleepBeauty,
+            s.SLEEP_BEVERAGE      AS sleepBeverage,
+            s.SLEEP_BICYCLE       AS sleepBicycle,
+            s.SLEEP_CAMPFIRE      AS sleepCampfire,
+            s.SLEEP_FITNESS       AS sleepFitness,
+            s.SLEEP_KARAOKE       AS sleepKaraoke,
+            s.SLEEP_PUBLIC_BATH   AS sleepPublicBath,
+            s.SLEEP_PUBLIC_PC     AS sleepPublicPc,
+            s.SLEEP_SAUNA         AS sleepSauna,
+            s.SLEEP_SEMINAR       AS sleepSeminar,
+            s.SLEEP_SPORTS        AS sleepSports
+        FROM PLACE p
+        LEFT JOIN PLACE_SLEEP s ON p.PLC_NO = s.SLEEP_PLC_NO
+        WHERE p.PLC_NO = #{plcNo}
+    </select>
+
+	<!-- 🚀 1. 장소명 검색 조건 공통 조각 -->
+    <sql id="placeSearchCondition">
+        <if test="keyword != null and keyword != ''">
+            AND p.PLC_NAME LIKE CONCAT('%', #{keyword}, '%')
+        </if>
+    </sql>
+
+    <!-- 기존 findByRegion 쿼리 유지 (생략) ... -->
+
+    <select id="findSleepListPaged" resultType="sst.content.dto.SleepResponseDto">
+        SELECT
+            p.PLC_NO              AS plcNo,
+            p.PLC_ID              AS plcId,
+            p.PLC_RGN_CD          AS plcRgnCd,
+            p.PLC_NAME            AS plcName,
+            p.PLC_ADDR            AS plcAddr,
+            p.PLC_FLT_CD          AS plcFltCd,
+            p.PLC_AVG_RATING      AS plcAvgRating,
+            p.PLC_REVIEW_CNT      AS plcReviewCnt,
+            p.PLC_USE_YN          AS plcUseYn, /* 🚀 상태값 반환 추가 */
+            s.SLEEP_CHECK_IN      AS sleepCheckIn,
+            s.SLEEP_CHECK_OUT     AS sleepCheckOut
+        FROM PLACE p
+        LEFT JOIN PLACE_SLEEP s ON p.PLC_NO = s.SLEEP_PLC_NO
+        WHERE p.PLC_CAT_CD = 'PLC004'
+        
+        <!-- 🚀 기존 AND p.PLC_USE_YN = 'Y'를 지우고 아래 choose 구문 삽입 -->
+        <choose>
+            <when test="useYn == 'N'.toString()">
+                AND p.PLC_USE_YN = 'N'
+            </when>
+            <when test="useYn == 'ALL'.toString()">
+                /* 전체 조회 */
+            </when>
+            <otherwise>
+                AND p.PLC_USE_YN = 'Y'
+            </otherwise>
+        </choose>
+
+        <if test="rgnCd != null">
+            AND p.PLC_RGN_CD = #{rgnCd}
+        </if>
+        <include refid="placeSearchCondition" />
+        ORDER BY p.PLC_NO DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <!-- 2. countSleepListByRegion 쿼리 수정 -->
+    <select id="countSleepListByRegion" resultType="int">
+        SELECT COUNT(*)
+        FROM PLACE p
+        WHERE p.PLC_CAT_CD = 'PLC004'
+        
+        <!-- 🚀 리스트 쿼리와 똑같이 상태 조건 추가 -->
+        <choose>
+            <when test="useYn == 'N'.toString()">
+                AND p.PLC_USE_YN = 'N'
+            </when>
+            <when test="useYn == 'ALL'.toString()">
+            </when>
+            <otherwise>
+                AND p.PLC_USE_YN = 'Y'
+            </otherwise>
+        </choose>
+
+        <if test="rgnCd != null">
+            AND p.PLC_RGN_CD = #{rgnCd}
+        </if>
+        <include refid="placeSearchCondition" />
+    </select>
+
+    <!-- 3. 🚀 맨 아래에 상태 업데이트 쿼리 추가 -->
+    <update id="updatePlaceUseYn">
+        UPDATE PLACE
+        SET PLC_USE_YN = #{useYn},
+            PLC_UP_DATE = NOW()
+        WHERE PLC_NO = #{plcNo}
+    </update>
+    
+</mapper>

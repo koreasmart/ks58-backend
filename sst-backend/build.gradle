@@ -1,0 +1,55 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '3.5.14'
+	id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'ksmart'
+version = '0.0.1-SNAPSHOT'
+description = 'ksteam58 for spirngboot'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter-data-jdbc'
+	implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.boot:spring-boot-starter-validation'\
+	// mybatis
+	implementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter:3.0.5'
+	// Source: https://mvnrepository.com/artifact/com.integralblue/log4jdbc-spring-boot-starter
+	implementation 'com.integralblue:log4jdbc-spring-boot-starter:2.0.0'
+	// Source: https://mvnrepository.com/artifact/io.jsonwebtoken/jjwt-api
+	implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
+	// Source: https://mvnrepository.com/artifact/io.jsonwebtoken/jjwt-impl
+	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
+	// Source: https://mvnrepository.com/artifact/io.jsonwebtoken/jjwt-jackson
+	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
+	// oauth2 클라이언트 라이브러리
+	implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
+	compileOnly 'org.projectlombok:lombok'
+	developmentOnly 'org.springframework.boot:spring-boot-devtools'
+	runtimeOnly 'com.mysql:mysql-connector-j'
+	annotationProcessor 'org.projectlombok:lombok'
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter-test:3.0.5'
+	testImplementation 'org.springframework.security:spring-security-test'
+	testCompileOnly 'org.projectlombok:lombok'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+	testAnnotationProcessor 'org.projectlombok:lombok'
+	// Source: https://mvnrepository.com/artifact/com.github.pagehelper/pagehelper-spring-boot-starter
+	implementation 'com.github.pagehelper:pagehelper-spring-boot-starter:2.1.0'
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}

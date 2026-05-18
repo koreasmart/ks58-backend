@@ -1,0 +1,610 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="sst.community.mapper.CommunityMapper">
+    
+	<!-- 커뮤니티 게시글 목록 조회 -->
+	<select id="selectCommunityList" resultType="sst.community.domain.Community">
+	    SELECT
+	        C.COMM_NO AS commNo,
+	        C.COMM_MBR_ID AS commMbrId,
+	        M.MBR_NICKNAME AS mbrNickname,
+	        C.COMM_CAT_CD AS commCatCd,
+	        C.COMM_AIS_NO AS commAisNo,
+	        TC1.CMM_CD_NAME AS theme1Name,
+	        TC2.CMM_CD_NAME AS theme2Name,
+	        TC3.CMM_CD_NAME AS theme3Name,
+	        C.COMM_PLC_NO AS commPlcNo,
+	        P.PLC_NAME AS plcName,
+	        COALESCE(R.RGN_NAME, AR.RGN_NAME) AS rgnName,
+	        C.COMM_MAIN_IMG_URL AS commMainImgUrl,
+	        C.COMM_TITLE AS commTitle,
+	        C.COMM_CONTENT AS commContent,
+	        C.COMM_INQIRE_CNT AS commInqireCnt,
+	        C.COMM_LIKE_CNT AS commLikeCnt,
+	        C.COMM_CMNT_CNT AS commCmntCnt,
+	        DATE_FORMAT(C.COMM_REG_DATE, '%Y-%m-%d') AS commRegDate,
+	        DATE_FORMAT(C.COMM_UP_DATE, '%Y-%m-%d') AS commUpDate,
+	        C.COMM_USE_YN AS commUseYn,
+	        GROUP_CONCAT(DISTINCT H.HTAG_TAG_NAME) AS hashtagText
+	    FROM COMMUNITY C
+	    JOIN MEMBER M
+	      ON C.COMM_MBR_ID = M.MBR_ID
+	
+	    LEFT JOIN AI_SCHEDULE AIS
+	      ON C.COMM_AIS_NO = AIS.AIS_NO
+	      
+	    LEFT JOIN REGION AR
+  		  ON AIS.AIS_RGN_NO = AR.RGN_NO
+	
+	    LEFT JOIN CMM_CODE TC1
+	      ON AIS.AIS_THEME1_CD = TC1.CMM_CD
+	
+	    LEFT JOIN CMM_CODE TC2
+	      ON AIS.AIS_THEME2_CD = TC2.CMM_CD
+	
+	    LEFT JOIN CMM_CODE TC3
+	      ON AIS.AIS_THEME3_CD = TC3.CMM_CD
+	
+	    LEFT JOIN PLACE P
+	      ON C.COMM_PLC_NO = P.PLC_NO
+	    LEFT JOIN REGION R
+	      ON P.PLC_RGN_CD = R.RGN_CD
+	    LEFT JOIN COMMUNITY_HASHTAG CH
+	      ON C.COMM_NO = CH.CHTG_COMM_NO
+	    LEFT JOIN HASHTAG H
+	      ON CH.CHTG_HTAG_NO = H.HTAG_NO
+	    WHERE C.COMM_USE_YN = 'Y'
+	      AND C.COMM_CAT_CD = #{catCd}
+	
+	    <if test="keyword != null and keyword != ''">
+	        <choose>
+	            <when test="searchType == 'title'">
+	                AND C.COMM_TITLE LIKE CONCAT('%', #{keyword}, '%')
+	            </when>
+	
+	            <when test="searchType == 'content'">
+	                AND C.COMM_CONTENT LIKE CONCAT('%', #{keyword}, '%')
+	            </when>
+	
+	            <when test="searchType == 'author'">
+	                AND M.MBR_NICKNAME LIKE CONCAT('%', #{keyword}, '%')
+	            </when>
+	
+	            <when test="searchType == 'place'">
+	                AND P.PLC_NAME LIKE CONCAT('%', #{keyword}, '%')
+	            </when>
+	
+	            <when test="searchType == 'region'">
+	                AND R.RGN_NAME LIKE CONCAT('%', #{keyword}, '%')
+	            </when>
+	
+	            <when test="searchType == 'hashtag'">
+	                AND H.HTAG_TAG_NAME LIKE CONCAT('%', #{keyword}, '%')
+	            </when>
+	
+	            <otherwise>
+	                AND (
+	                    C.COMM_TITLE LIKE CONCAT('%', #{keyword}, '%')
+	                    OR C.COMM_CONTENT LIKE CONCAT('%', #{keyword}, '%')
+	                    OR M.MBR_NICKNAME LIKE CONCAT('%', #{keyword}, '%')
+	                    OR P.PLC_NAME LIKE CONCAT('%', #{keyword}, '%')
+	                    OR R.RGN_NAME LIKE CONCAT('%', #{keyword}, '%')
+	                    OR H.HTAG_TAG_NAME LIKE CONCAT('%', #{keyword}, '%')
+	                    OR TC1.CMM_CD_NAME LIKE CONCAT('%', #{keyword}, '%')
+	                    OR TC2.CMM_CD_NAME LIKE CONCAT('%', #{keyword}, '%')
+	                    OR TC3.CMM_CD_NAME LIKE CONCAT('%', #{keyword}, '%')
+	                )
+	            </otherwise>
+	        </choose>
+	    </if>
+	
+	    GROUP BY C.COMM_NO
+	
+	    <choose>
+	        <when test="sortType == 'popular'">
+	            ORDER BY (C.COMM_INQIRE_CNT + C.COMM_LIKE_CNT + C.COMM_CMNT_CNT) DESC, C.COMM_NO DESC
+	        </when>
+	        <when test="sortType == 'view'">
+	            ORDER BY C.COMM_INQIRE_CNT DESC, C.COMM_NO DESC
+	        </when>
+	        <when test="sortType == 'comment'">
+	            ORDER BY C.COMM_CMNT_CNT DESC, C.COMM_NO DESC
+	        </when>
+	        <otherwise>
+	            ORDER BY C.COMM_NO DESC
+	        </otherwise>
+	    </choose>
+	
+	    LIMIT #{offset}, #{size}
+	</select>
+	
+	<!-- 커뮤니티 게시글 총 개수 조회 -->
+	<select id="countCommunityList" resultType="int">
+	    SELECT COUNT(DISTINCT C.COMM_NO)
+	    FROM COMMUNITY C
+	    JOIN MEMBER M
+	      ON C.COMM_MBR_ID = M.MBR_ID
+	    LEFT JOIN PLACE P
+	      ON C.COMM_PLC_NO = P.PLC_NO
+	    LEFT JOIN REGION R
+	      ON P.PLC_RGN_CD = R.RGN_CD
+	    LEFT JOIN COMMUNITY_HASHTAG CH
+	      ON C.COMM_NO = CH.CHTG_COMM_NO
+	    LEFT JOIN HASHTAG H
+	      ON CH.CHTG_HTAG_NO = H.HTAG_NO
+	    WHERE C.COMM_USE_YN = 'Y'
+	      AND C.COMM_CAT_CD = #{catCd}
+	
+	    <if test="keyword != null and keyword != ''">
+	        <choose>
+	            <when test="searchType == 'title'">
+	                AND C.COMM_TITLE LIKE CONCAT('%', #{keyword}, '%')
+	            </when>
+	
+	            <when test="searchType == 'content'">
+	                AND C.COMM_CONTENT LIKE CONCAT('%', #{keyword}, '%')
+	            </when>
+	
+	            <when test="searchType == 'author'">
+	                AND M.MBR_NICKNAME LIKE CONCAT('%', #{keyword}, '%')
+	            </when>
+	
+	            <when test="searchType == 'place'">
+	                AND P.PLC_NAME LIKE CONCAT('%', #{keyword}, '%')
+	            </when>
+	
+	            <when test="searchType == 'region'">
+	                AND R.RGN_NAME LIKE CONCAT('%', #{keyword}, '%')
+	            </when>
+	
+	            <when test="searchType == 'hashtag'">
+	                AND H.HTAG_TAG_NAME LIKE CONCAT('%', #{keyword}, '%')
+	            </when>
+	
+	            <otherwise>
+	                AND (
+	                    C.COMM_TITLE LIKE CONCAT('%', #{keyword}, '%')
+	                    OR C.COMM_CONTENT LIKE CONCAT('%', #{keyword}, '%')
+	                    OR M.MBR_NICKNAME LIKE CONCAT('%', #{keyword}, '%')
+	                    OR P.PLC_NAME LIKE CONCAT('%', #{keyword}, '%')
+	                    OR R.RGN_NAME LIKE CONCAT('%', #{keyword}, '%')
+	                    OR H.HTAG_TAG_NAME LIKE CONCAT('%', #{keyword}, '%')
+	                )
+	            </otherwise>
+	        </choose>
+	    </if>
+	</select>
+    
+    <!-- 커뮤니티 게시글 상세 조회 -->
+	<select id="selectCommunityDetail" resultType="sst.community.domain.Community">
+	    SELECT
+	        C.COMM_NO AS commNo,
+	        C.COMM_MBR_ID AS commMbrId,
+	        M.MBR_NICKNAME AS mbrNickname,
+	        C.COMM_CAT_CD AS commCatCd,
+	        C.COMM_AIS_NO AS commAisNo,
+	
+	        C.COMM_PLC_NO AS commPlcNo,
+	        P.PLC_NAME AS plcName,
+	        R.RGN_CD AS rgnCd,
+	        COALESCE(R.RGN_NAME, AR.RGN_NAME) AS rgnName,
+	        CC.CMM_CD AS plcCatCd,
+	        CC.CMM_CD_NAME AS plcCatName,
+	
+	        C.COMM_MAIN_IMG_URL AS commMainImgUrl,
+	        C.COMM_TITLE AS commTitle,
+	        C.COMM_CONTENT AS commContent,
+	        C.COMM_INQIRE_CNT AS commInqireCnt,
+	        C.COMM_LIKE_CNT AS commLikeCnt,
+	        C.COMM_CMNT_CNT AS commCmntCnt,
+	        DATE_FORMAT(C.COMM_REG_DATE, '%Y-%m-%d') AS commRegDate,
+	        DATE_FORMAT(C.COMM_UP_DATE, '%Y-%m-%d') AS commUpDate,
+	        C.COMM_USE_YN AS commUseYn,
+	        GROUP_CONCAT(H.HTAG_TAG_NAME) AS hashtagText
+	    FROM COMMUNITY C
+	    JOIN MEMBER M
+	      ON C.COMM_MBR_ID = M.MBR_ID
+	
+	    LEFT JOIN AI_SCHEDULE AIS
+	      ON C.COMM_AIS_NO = AIS.AIS_NO
+	
+	    LEFT JOIN REGION AR
+	      ON AIS.AIS_RGN_NO = AR.RGN_NO
+	
+	    LEFT JOIN PLACE P
+	      ON C.COMM_PLC_NO = P.PLC_NO
+	
+	    LEFT JOIN REGION R
+	      ON P.PLC_RGN_CD = R.RGN_CD
+	
+	    LEFT JOIN CMM_CODE CC
+	      ON P.PLC_CAT_CD = CC.CMM_CD
+	
+	    LEFT JOIN COMMUNITY_HASHTAG CH
+	      ON C.COMM_NO = CH.CHTG_COMM_NO
+	
+	    LEFT JOIN HASHTAG H
+	      ON CH.CHTG_HTAG_NO = H.HTAG_NO
+	    WHERE C.COMM_USE_YN = 'Y'
+	      AND C.COMM_NO = #{commNo}
+	    GROUP BY C.COMM_NO
+	</select>
+	
+	<!-- 커뮤니티 게시글 등록 -->
+	<insert id="insertCommunity" parameterType="sst.community.dto.CommunityDto"
+	        useGeneratedKeys="true"
+	        keyProperty="commNo"
+	        keyColumn="COMM_NO">
+	    INSERT INTO COMMUNITY (
+	        COMM_MBR_ID,
+			    COMM_CAT_CD,
+			    COMM_AIS_NO,
+			    COMM_PLC_NO,
+			    COMM_TITLE,
+			    COMM_CONTENT,
+			    COMM_MAIN_IMG_URL
+			)
+			VALUES (
+			    #{commMbrId},
+			    #{commCatCd},
+			    #{commAisNo},
+			    #{commPlcNo},
+			    #{commTitle},
+			    #{commContent},
+			    #{commMainImgUrl}
+	    )
+	</insert>
+	
+	<!-- 커뮤니티 게시글 수정 -->
+	<update id="updateCommunity" parameterType="sst.community.dto.CommunityDto">
+	    UPDATE COMMUNITY
+	    SET
+	        COMM_TITLE = #{commTitle},
+	        COMM_CONTENT = #{commContent},
+	        COMM_MAIN_IMG_URL = #{commMainImgUrl},
+	        COMM_PLC_NO = #{commPlcNo},
+	        COMM_UP_DATE = NOW()
+	    WHERE COMM_NO = #{commNo}
+	</update>
+	
+	<!-- 커뮤니티 게시글 삭제 -->
+	<update id="deleteCommunity">
+	    UPDATE COMMUNITY
+	    SET COMM_USE_YN = 'N',
+	        COMM_UP_DATE = NOW()
+	    WHERE COMM_NO = #{commNo}
+	</update>
+
+	<!-- 커뮤니티 게시글 조회수 증가 -->
+	<update id="updateViewCount">
+	    UPDATE COMMUNITY
+	    SET COMM_INQIRE_CNT = COMM_INQIRE_CNT + 1
+	    WHERE COMM_NO = #{commNo}
+	</update>
+
+	<!-- 커뮤니티 게시글 좋아요 여부 확인 -->
+	<select id="selectLikeCount" resultType="int">
+	    SELECT COUNT(*)
+	    FROM COMMUNITY_LIKE
+	    WHERE CLKE_COMM_NO = #{commNo}
+	      AND CLKE_MBR_ID = #{mbrId}
+	</select>
+	
+	<!-- 게시글 목록 좋아요 여부 조회 -->
+	<select id="selectLikedCommunityNos" resultType="long">
+	    SELECT CLKE_COMM_NO
+	    FROM COMMUNITY_LIKE
+	    WHERE CLKE_MBR_ID = #{mbrId}
+	      AND CLKE_COMM_NO IN
+	      <foreach collection="commNos"
+	               item="commNo"
+	               open="("
+	               separator=","
+	               close=")">
+	          #{commNo}
+	      </foreach>
+	</select>
+	
+	<!-- 커뮤니티 게시글 좋아요 추가 -->
+	<insert id="insertCommunityLike">
+	    INSERT INTO COMMUNITY_LIKE (
+	        CLKE_COMM_NO,
+	        CLKE_MBR_ID
+	    )
+	    VALUES (
+	        #{commNo},
+	        #{mbrId}
+	    )
+	</insert>
+	
+	<!-- 커뮤니티 게시글 좋아요 삭제 -->
+	<delete id="deleteCommunityLike">
+	    DELETE FROM COMMUNITY_LIKE
+	    WHERE CLKE_COMM_NO = #{commNo}
+	      AND CLKE_MBR_ID = #{mbrId}
+	</delete>
+	
+	<!-- 커뮤니티 게시글 좋아요 수 증가 -->
+	<update id="increaseLikeCount">
+	    UPDATE COMMUNITY
+	    SET COMM_LIKE_CNT = COMM_LIKE_CNT + 1
+	    WHERE COMM_NO = #{commNo}
+	</update>
+	
+	<!-- 커뮤니티 게시글 좋아요 수 감소 -->
+	<update id="decreaseLikeCount">
+	    UPDATE COMMUNITY
+	    SET COMM_LIKE_CNT = GREATEST(COMM_LIKE_CNT - 1, 0)
+	    WHERE COMM_NO = #{commNo}
+	</update>
+	
+	<!-- 해시태그 번호 조회 -->
+	<select id="selectHashtagNo" resultType="long">
+	    SELECT HTAG_NO
+	    FROM HASHTAG
+	    WHERE HTAG_TAG_NAME = #{tagName}
+	</select>
+	
+	<!-- 해시태그 등록 -->
+	<insert id="insertHashtag">
+	    INSERT INTO HASHTAG (
+	        HTAG_TAG_NAME,
+	        HTAG_USE_CNT
+	    )
+	    VALUES (
+	        #{tagName},
+	        0
+	    )
+	</insert>
+	
+	<!-- 게시글 해시태그 연결 -->
+	<insert id="insertCommunityHashtag">
+	    INSERT INTO COMMUNITY_HASHTAG (
+	        CHTG_COMM_NO,
+	        CHTG_HTAG_NO
+	    )
+	    VALUES (
+	        #{commNo},
+	        #{tagNo}
+	    )
+	</insert>
+	
+	<!-- 게시글 해시태그 전체 삭제 -->
+	<delete id="deleteCommunityHashtags">
+	    DELETE FROM COMMUNITY_HASHTAG
+	    WHERE CHTG_COMM_NO = #{commNo}
+	</delete>
+	
+	<!-- 파일 정보 등록 -->
+	<insert id="insertFile" parameterType="sst.community.dto.CommunityFileDto"
+	        useGeneratedKeys="true"
+	        keyProperty="fileNo"
+	        keyColumn="FILE_NO">
+	    INSERT INTO FILE (
+	        FILE_ORG_NM,
+	        FILE_SAVE_NM,
+	        FILE_PATH,
+	        FILE_EXT,
+	        FILE_SIZE,
+	        FILE_MIME_TYPE,
+	        FILE_TYPE,
+	        FILE_REG_DATE,
+	        FILE_USE_YN
+	    )
+	    VALUES (
+	        #{fileOrgNm},
+	        #{fileSaveNm},
+	        #{filePath},
+	        #{fileExt},
+	        #{fileSize},
+	        #{fileMimeType},
+	        #{fileType},
+	        NOW(),
+	        'Y'
+	    )
+	</insert>
+	
+	<!-- 인기 해시태그 TOP5 조회 -->
+	<select id="selectPopularHashtags" resultType="string">
+	    SELECT
+	        H.HTAG_TAG_NAME
+	    FROM HASHTAG H
+	    JOIN COMMUNITY_HASHTAG CH
+	      ON H.HTAG_NO = CH.CHTG_HTAG_NO
+	    JOIN COMMUNITY C
+	      ON CH.CHTG_COMM_NO = C.COMM_NO
+	    WHERE C.COMM_USE_YN = 'Y'
+	      AND C.COMM_CAT_CD = #{catCd}
+	    GROUP BY H.HTAG_NO, H.HTAG_TAG_NAME
+	    ORDER BY COUNT(*) DESC, H.HTAG_NO DESC
+	    LIMIT 5
+	</select>
+	
+	<!-- 커뮤니티 파일 매핑 등록 -->
+	<insert id="insertCommunityFileMap">
+	    INSERT INTO COMMUNITY_FILE_MAP (
+	        CFM_COMM_NO,
+	        CFM_FILE_NO,
+	        CFM_SORT_ORDR
+	    )
+	    VALUES (
+	        #{commNo},
+	        #{fileNo},
+	        #{sortOrdr}
+	    )
+	</insert>
+	
+	<!-- 게시글 대표 이미지 조회 -->
+	<select id="selectCommunityImageUrl" resultType="string">
+	    SELECT COMM_MAIN_IMG_URL
+	    FROM COMMUNITY
+	    WHERE COMM_NO = #{commNo}
+	</select>
+	
+	<!-- 게시글 좋아요 전체 삭제 -->
+	<delete id="deleteCommunityLikes">
+	    DELETE FROM COMMUNITY_LIKE
+	    WHERE CLKE_COMM_NO = #{commNo}
+	</delete>
+	
+	<!-- 게시글 댓글 전체 삭제 -->
+	<delete id="deleteCommentsByCommunity">
+	    DELETE FROM COMMENT
+	    WHERE CMNT_COMM_NO = #{commNo}
+	</delete>
+	
+	<!-- 게시글 파일 매핑 전체 삭제 -->
+	<delete id="deleteCommunityFileMaps">
+	    DELETE FROM COMMUNITY_FILE_MAP
+	    WHERE CFM_COMM_NO = #{commNo}
+	</delete>
+	
+	<!-- 게시글 파일 번호 목록 조회 -->
+	<select id="selectCommunityFileNos" resultType="long">
+	    SELECT CFM_FILE_NO
+	    FROM COMMUNITY_FILE_MAP
+	    WHERE CFM_COMM_NO = #{commNo}
+	</select>
+	
+	<!-- 파일 정보 삭제 -->
+	<delete id="deleteFiles">
+	    DELETE FROM FILE
+	    WHERE FILE_NO IN
+	    <foreach collection="fileNos" item="fileNo" open="(" separator="," close=")">
+	        #{fileNo}
+	    </foreach>
+	</delete>
+	
+	<!-- 게시글 이미지 목록 조회 -->
+	<select id="selectCommunityImages" resultType="string">
+	    SELECT F.FILE_PATH
+	    FROM COMMUNITY_FILE_MAP CFM
+	    JOIN FILE F
+	      ON CFM.CFM_FILE_NO = F.FILE_NO
+	    WHERE CFM.CFM_COMM_NO = #{commNo}
+	    ORDER BY CFM.CFM_SORT_ORDR ASC
+	</select>
+	
+	<!-- 지역 목록 조회 -->
+	<select id="selectRegionList" resultType="sst.community.dto.RegionDto">
+	    SELECT
+	        RGN_CD AS rgnCd,
+	        RGN_NAME AS rgnName
+	    FROM REGION
+	    ORDER BY RGN_CD ASC
+	</select>
+	
+	<!-- 카테고리 조회 -->
+	<select id="selectPlaceCategoryList" resultType="sst.community.dto.PlaceCategoryDto">
+	    SELECT
+	        CMM_CD AS cmmCd,
+	        CMM_CD_NAME AS cmmCdName
+	    FROM CMM_CODE
+	    WHERE CMM_GROUP_CD = 'GRP002'
+	      AND CMM_USE_YN = 'Y'
+	    ORDER BY CMM_SORT_ORDR ASC
+	</select>
+	
+	<!-- 구체적인 장소 -->
+	<select id="selectPlaceList" resultType="sst.community.dto.PlaceDto">
+	    SELECT
+	        PLC_NO AS plcNo,
+	        PLC_NAME AS plcName
+	    FROM PLACE
+	    WHERE PLC_RGN_CD = #{rgnCd}
+	      AND PLC_CAT_CD = #{catCd}
+	      AND PLC_USE_YN = 'Y'
+	    ORDER BY PLC_NAME ASC
+	</select>
+	
+   <!-- 댓글 수 감소 -->
+   <!-- 댓글 수 감소 -->
+   <!-- 댓글 수 감소 -->
+
+    
+	<sql id="adminSearchCondition">
+        AND C.COMM_CAT_CD = #{catCd}
+        <if test="keyword != null and keyword != ''">
+            AND (C.COMM_TITLE LIKE CONCAT('%', #{keyword}, '%')
+                 OR M.MBR_NICKNAME LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+        
+        <choose>
+            <when test='useYn == "Y"'>
+                AND C.COMM_USE_YN = 'Y'
+            </when>
+            
+            <when test='useYn == "N"'>
+                AND C.COMM_USE_YN = 'N'
+                AND (
+                    SELECT COUNT(*) FROM REPORT R 
+                    WHERE R.RPT_COMM_NO = C.COMM_NO AND R.RPT_STATUS_CD != 'RST004'
+                ) &lt; 5
+            </when>
+            
+            <when test='useYn == "B"'>
+                AND C.COMM_USE_YN = 'N'
+                AND (
+                    SELECT COUNT(*) FROM REPORT R 
+                    WHERE R.RPT_COMM_NO = C.COMM_NO AND R.RPT_STATUS_CD != 'RST004'
+                ) &gt;= 5
+            </when>
+        </choose>
+    </sql>
+
+    <!-- 🚀 관리자: 뽐낼거리 페이징 목록 조회 -->
+    <select id="selectAdminCommunityListPaged" resultType="sst.community.domain.Community">
+        SELECT
+            C.COMM_NO AS commNo,
+            C.COMM_MBR_ID AS commMbrId,
+            M.MBR_NICKNAME AS mbrNickname,
+            C.COMM_CAT_CD AS commCatCd,
+            C.COMM_TITLE AS commTitle,
+            C.COMM_INQIRE_CNT AS commInqireCnt,
+            C.COMM_LIKE_CNT AS commLikeCnt,
+            C.COMM_CMNT_CNT AS commCmntCnt,
+            DATE_FORMAT(C.COMM_REG_DATE, '%Y-%m-%d') AS commRegDate,
+            C.COMM_USE_YN AS commUseYn,
+            /* 🚀 원문에 달린 유효한 누적 신고 수 (반려된 RST004 제외) 계산 */
+            (SELECT COUNT(*) FROM REPORT R 
+             WHERE R.RPT_COMM_NO = C.COMM_NO AND R.RPT_STATUS_CD != 'RST004') AS reportCnt
+        FROM COMMUNITY C
+        JOIN MEMBER M ON C.COMM_MBR_ID = M.MBR_ID
+        WHERE 1=1
+        <include refid="adminSearchCondition"/>
+        ORDER BY C.COMM_NO DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <select id="countAdminCommunityList" resultType="int">
+        SELECT COUNT(*)
+        FROM COMMUNITY C
+        JOIN MEMBER M ON C.COMM_MBR_ID = M.MBR_ID
+        WHERE 1=1
+        <include refid="adminSearchCondition"/>
+    </select>
+
+    <update id="updateAdminCommunityStatus">
+        UPDATE COMMUNITY 
+        SET COMM_USE_YN = #{useYn}, 
+            COMM_UP_DATE = NOW() 
+        WHERE COMM_NO = #{commNo}
+    </update>
+    
+    <update id="updateCommunityByAdmin" parameterType="sst.community.domain.Community">
+    /* 🚀 관리자는 제목, 내용뿐만 아니라 사용여부(상태) 등 모든 필드를 제어할 수 있도록 쿼리를 구성합니다. */
+    UPDATE COMMUNITY
+    <set>
+        <if test="commTitle != null">COMM_TITLE = #{commTitle},</if>
+        <if test="commContent != null">COMM_CONTENT = #{commContent},</if>
+        <if test="commUseYn != null">COMM_USE_YN = #{commUseYn},</if>
+        <if test="commMainImgUrl != null">COMM_MAIN_IMG_URL = #{commMainImgUrl},</if>
+        COMM_UP_DATE = NOW()
+    </set>
+    WHERE COMM_NO = #{commNo}
+</update>
+
+</mapper>

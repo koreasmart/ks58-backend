@@ -1,0 +1,280 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="sst.plan.mapper.AiPlanMapper">
+
+    <!-- 지역명 -> 지역코드 조회 -->
+    <select id="findRgnCdByRgnName" resultType="java.lang.Integer">
+        SELECT RGN_CD
+        FROM REGION
+        WHERE RGN_NAME = #{rgnName}
+        AND RGN_USE_YN = 'Y'
+        LIMIT 1
+    </select>
+
+    <!-- 테마명 -> 테마코드 목록 조회 -->
+    <select id="findThemeCodesByNames" resultType="java.lang.String">
+        SELECT CMM_CD
+        FROM CMM_CODE
+        WHERE CMM_CD_NAME IN
+        <foreach item="name" collection="themeNames" open="(" separator="," close=")">
+            #{name}
+        </foreach>
+        AND CMM_GROUP_CD = 'GRP004'
+        AND CMM_USE_YN = 'Y'
+    </select>
+
+    <!-- 지역코드 + 테마코드 목록으로 장소 조회 -->
+    <select id="findPlacesByRegionAndThemes" resultType="sst.plan.dto.PlaceResponseDto">
+        SELECT DISTINCT
+            p.PLC_NO            AS id,
+            p.PLC_NAME          AS name,
+            p.PLC_RGN_CD        AS regionCode,
+            r.RGN_NAME          AS regionName,
+            p.PLC_CAT_CD        AS placeCategory,
+            cat.CMM_CD_NAME     AS placeCategoryName,
+            p.PLC_LOT           AS x,
+            p.PLC_LAT           AS y,
+            p.PLC_OVERVIEW      AS overview,
+            p.PLC_FLT_CD        AS placeFilter,
+            flt.CMM_CD_NAME     AS placeFilterName,
+            p.PLC_MAIN_IMG_URL  AS imgUrl,
+            (
+                SELECT GROUP_CONCAT(cc.CMM_CD_NAME)
+                FROM PLACE_TAG_MAP ptm2
+                JOIN CMM_CODE cc ON ptm2.PTAG_TAG_CD = cc.CMM_CD
+                WHERE ptm2.PTAG_PLC_NO = p.PLC_NO
+                AND cc.CMM_GROUP_CD = 'GRP004'
+            ) AS placeThemeName
+        FROM PLACE p
+        JOIN REGION r           ON p.PLC_RGN_CD = r.RGN_CD
+        JOIN CMM_CODE cat        ON p.PLC_CAT_CD = cat.CMM_CD
+        JOIN CMM_CODE flt        ON p.PLC_FLT_CD = flt.CMM_CD
+        LEFT JOIN PLACE_TAG_MAP ptm ON p.PLC_NO = ptm.PTAG_PLC_NO
+        WHERE p.PLC_RGN_CD = #{rgnCd}
+        AND p.PLC_USE_YN = 'Y'
+        AND p.PLC_FLT_CD != 'FLT014'
+        AND (
+            ptm.PTAG_TAG_CD IN
+            <foreach item="code" collection="themeCodes" open="(" separator="," close=")">
+                #{code}
+            </foreach>
+            OR p.PLC_CAT_CD = 'PLC003'
+            OR p.PLC_CAT_CD = 'PLC004'
+            OR p.PLC_FLT_CD = 'FLT010'
+            OR p.PLC_CAT_CD = 'PLC001'
+            OR p.PLC_FLT_CD = 'FLT021'
+        )
+        ORDER BY
+            CASE WHEN p.PLC_MAIN_IMG_URL IS NOT NULL THEN 0 ELSE 1 END,
+            p.PLC_NO DESC
+    </select>
+
+    <!-- 장소별 테마코드 목록 조회 -->
+    <select id="findThemeCodesByPlcNo" resultType="java.lang.String">
+        SELECT PTAG_TAG_CD
+        FROM PLACE_TAG_MAP
+        WHERE PTAG_PLC_NO = #{plcNo}
+    </select>
+
+    <!-- 테마코드 -> 테마명 목록 조회 -->
+    <select id="findThemeNamesByCodes" resultType="java.lang.String">
+        SELECT CMM_CD_NAME
+        FROM CMM_CODE
+        WHERE CMM_CD IN
+        <foreach item="code" collection="themeCodes" open="(" separator="," close=")">
+            #{code}
+        </foreach>
+        AND CMM_USE_YN = 'Y'
+    </select>
+
+    <!-- AI 일정 저장 -->
+    <insert id="insertAiSchedule" parameterType="sst.plan.dto.AiScheduleInsertDto"
+            useGeneratedKeys="true" keyProperty="aisNo">
+        INSERT INTO AI_SCHEDULE (
+            AIS_MBR_ID,
+            AIS_SCHDUL_NAME,
+            AIS_BEGIN_DATE,
+            AIS_END_DATE,
+            AIS_TOT_DAYS,
+            AIS_RGN_NO,
+            AIS_THEME1_CD,
+            AIS_THEME2_CD,
+            AIS_THEME3_CD,
+            AIS_RLS_YN
+        ) VALUES (
+            #{mbrId},
+            #{scheduleName},
+            #{startDate, jdbcType=DATE},
+            #{endDate, jdbcType=DATE},
+            #{totalDays},
+            #{rgnNo},
+            #{theme1},
+            #{theme2},
+            #{theme3},
+            'N'
+        )
+    </insert>
+
+    <!-- AI 일정 날짜별 저장 -->
+    <insert id="insertAiScheduleDay" parameterType="sst.plan.dto.AiScheduleDayInsertDto"
+            useGeneratedKeys="true" keyProperty="aisdNo">
+        INSERT INTO AI_SCHEDULE_DAY (
+            AISD_AIS_NO,
+            AISD_TRAVEL_DATE,
+            AISD_DAY_NO
+        ) VALUES (
+            #{aisNo},
+            #{travelDate, jdbcType=DATE},
+            #{dayNo}
+        )
+    </insert>
+
+    <!-- AI 일정 장소 저장 -->
+    <insert id="insertAiSchedulePlace" parameterType="sst.plan.dto.AiSchedulePlaceInsertDto">
+        INSERT INTO AI_SCHEDULE_PLACE (
+            AISP_AISD_NO,
+            AISP_PLC_NO,
+            AISP_VISIT_ORDR
+        ) VALUES (
+            #{aisdNo},
+            #{plcNo},
+            #{visitOrder}
+        )
+    </insert>
+
+    <!-- 지역명 -> 지역번호 조회 -->
+    <select id="findRgnNoByRgnName" resultType="java.lang.Long">
+        SELECT RGN_NO
+        FROM REGION
+        WHERE RGN_NAME = #{rgnName}
+        AND RGN_USE_YN = 'Y'
+        LIMIT 1
+    </select>
+
+    <!-- 내 일정 목록 조회 -->
+    <select id="selectMySchedules" parameterType="long" resultType="sst.plan.dto.AiScheduleResponseDto">
+        SELECT
+            AIS_NO          AS aisNo,
+            AIS_SCHDUL_NAME AS aisSchdulName,
+            AIS_BEGIN_DATE  AS aisBeginDate,
+            AIS_END_DATE    AS aisEndDate,
+            AIS_TOT_DAYS    AS aisTotDays,
+            AIS_RLS_YN      AS aisRlsYn,
+            AIS_REG_DATE    AS aisRegDate
+        FROM AI_SCHEDULE
+        WHERE AIS_MBR_ID = #{mbrId}
+        AND AIS_USE_YN = 'Y'
+        ORDER BY AIS_REG_DATE DESC
+    </select>
+
+    <!-- aisNo로 일정 상세 조회 -->
+    <select id="selectScheduleDetail" parameterType="long" resultType="sst.plan.dto.AiScheduleDetailDto">
+        SELECT
+            s.AIS_NO            AS aisNo,
+            s.AIS_SCHDUL_NAME   AS aisSchdulName,
+            s.AIS_BEGIN_DATE    AS aisBeginDate,
+            s.AIS_END_DATE      AS aisEndDate,
+            s.AIS_TOT_DAYS      AS aisTotDays,
+            s.AIS_RGN_NO        AS aisRgnNo,
+            s.AIS_THEME1_CD     AS aisTheme1Cd,
+            s.AIS_THEME2_CD     AS aisTheme2Cd,
+            s.AIS_THEME3_CD     AS aisTheme3Cd,
+            (SELECT CMM_CD_NAME FROM CMM_CODE WHERE CMM_CD = s.AIS_THEME1_CD AND CMM_USE_YN = 'Y') AS aisTheme1Name,
+            (SELECT CMM_CD_NAME FROM CMM_CODE WHERE CMM_CD = s.AIS_THEME2_CD AND CMM_USE_YN = 'Y') AS aisTheme2Name,
+            (SELECT CMM_CD_NAME FROM CMM_CODE WHERE CMM_CD = s.AIS_THEME3_CD AND CMM_USE_YN = 'Y') AS aisTheme3Name,
+            d.AISD_NO           AS aisdNo,
+            d.AISD_DAY_NO       AS aisdDayNo,
+            d.AISD_TRAVEL_DATE  AS aisdTravelDate,
+            p.AISP_NO           AS aispNo,
+            p.AISP_PLC_NO       AS aispPlcNo,
+            p.AISP_VISIT_ORDR   AS aispVisitOrdr,
+            pl.PLC_NAME         AS plcName,
+            pl.PLC_CAT_CD       AS plcCatCd,
+            cat.CMM_CD_NAME     AS plcCatName,
+            pl.PLC_FLT_CD       AS plcFltCd,
+            pl.PLC_LAT          AS plcLat,
+            pl.PLC_LOT          AS plcLot,
+            pl.PLC_OVERVIEW     AS plcOverview,
+            pl.PLC_MAIN_IMG_URL AS plcMainImgUrl,
+            r.RGN_NAME          AS rgnName
+        FROM AI_SCHEDULE s
+        JOIN AI_SCHEDULE_DAY d   ON s.AIS_NO      = d.AISD_AIS_NO
+        JOIN AI_SCHEDULE_PLACE p ON d.AISD_NO     = p.AISP_AISD_NO
+        JOIN PLACE pl             ON p.AISP_PLC_NO = pl.PLC_NO
+        JOIN CMM_CODE cat         ON pl.PLC_CAT_CD = cat.CMM_CD
+        JOIN REGION r             ON s.AIS_RGN_NO  = r.RGN_NO
+        WHERE s.AIS_NO = #{aisNo}
+        ORDER BY d.AISD_DAY_NO, p.AISP_VISIT_ORDR
+    </select>
+
+    <!-- 일정 수정 -->
+    <update id="updateScheduleName" parameterType="map">
+        UPDATE AI_SCHEDULE
+        SET
+            AIS_SCHDUL_NAME = #{scheduleName},
+            AIS_UP_DATE     = NOW()
+        WHERE AIS_NO = #{aisNo}
+    </update>
+
+    <!-- 기존 일정 장소 삭제 후 재저장 -->
+    <delete id="deleteSchedulePlaceByAisNo" parameterType="long">
+        DELETE FROM AI_SCHEDULE_PLACE
+        WHERE AISP_AISD_NO IN (
+            SELECT AISD_NO FROM AI_SCHEDULE_DAY WHERE AISD_AIS_NO = #{aisNo}
+        )
+    </delete>
+
+    <delete id="deleteScheduleDayByAisNo" parameterType="long">
+        DELETE FROM AI_SCHEDULE_DAY
+        WHERE AISD_AIS_NO = #{aisNo}
+    </delete>
+
+    <!-- 일정 삭제 -->
+    <delete id="deleteSchedule" parameterType="long">
+        DELETE FROM AI_SCHEDULE
+        WHERE AIS_NO = #{aisNo}
+    </delete>
+
+	    <!-- 복사용 원본 일정 조회 -->
+	<select id="selectScheduleForCopy" parameterType="long" resultType="sst.plan.dto.AiScheduleInsertDto">
+	    SELECT
+	        AIS_MBR_ID      AS mbrId,
+	        AIS_SCHDUL_NAME AS scheduleName,
+	        AIS_BEGIN_DATE  AS startDate,
+	        AIS_END_DATE    AS endDate,
+	        AIS_TOT_DAYS    AS totalDays,
+	        AIS_RGN_NO      AS rgnNo,
+	        AIS_THEME1_CD   AS theme1,
+	        AIS_THEME2_CD   AS theme2,
+	        AIS_THEME3_CD   AS theme3
+	    FROM AI_SCHEDULE
+	    WHERE AIS_NO = #{aisNo}
+	    AND AIS_USE_YN = 'Y'
+	</select>
+	
+	<!-- 복사용 day 목록 조회 -->
+	<select id="selectScheduleDaysForCopy" parameterType="long" resultType="sst.plan.dto.AiScheduleDayInsertDto">
+	    SELECT
+	        AISD_NO         AS aisdNo,
+	        AISD_AIS_NO     AS aisNo,
+	        AISD_TRAVEL_DATE AS travelDate,
+	        AISD_DAY_NO     AS dayNo
+	    FROM AI_SCHEDULE_DAY
+	    WHERE AISD_AIS_NO = #{aisNo}
+	    ORDER BY AISD_DAY_NO
+	</select>
+	
+	  <!-- 복사용 place 목록 조회 -->
+    <select id="selectSchedulePlacesForCopy" parameterType="long" resultType="sst.plan.dto.AiSchedulePlaceInsertDto">
+        SELECT
+            AISP_AISD_NO    AS aisdNo,
+            AISP_PLC_NO     AS plcNo,
+            AISP_VISIT_ORDR AS visitOrder
+        FROM AI_SCHEDULE_PLACE
+        WHERE AISP_AISD_NO = #{aisdNo}
+        ORDER BY AISP_VISIT_ORDR
+    </select>
+
+</mapper>

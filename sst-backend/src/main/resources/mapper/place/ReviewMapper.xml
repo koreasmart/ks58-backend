@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="sst.content.mapper.ReviewMapper">
+
+  <sql id="adminReviewSearchCondition">
+      <if test="keyword != null and keyword != ''">
+          <choose>
+              <when test='searchType == "content"'> AND r.RVW_CONTENT LIKE CONCAT('%', #{keyword}, '%') </when>
+              <when test='searchType == "reporter"'> AND m.MBR_NICKNAME LIKE CONCAT('%', #{keyword}, '%') </when>
+              <when test='searchType == "place"'> AND p.PLC_NAME LIKE CONCAT('%', #{keyword}, '%') </when>
+          </choose>
+      </if>
+      <choose>
+          <when test='useYn != null and useYn == "Y"'> 
+              AND r.RVW_USE_YN = 'Y' 
+          </when>
+          <when test='useYn != null and useYn == "N"'>
+              AND r.RVW_USE_YN = 'N'
+              AND (SELECT COUNT(*) FROM REPORT Rpt WHERE Rpt.RPT_REVIEW_NO = r.RVW_NO AND Rpt.RPT_STATUS_CD != 'RST004') &lt; 5
+          </when>
+          <when test='useYn != null and useYn == "B"'>
+              AND r.RVW_USE_YN = 'N'
+              AND (SELECT COUNT(*) FROM REPORT Rpt WHERE Rpt.RPT_REVIEW_NO = r.RVW_NO AND Rpt.RPT_STATUS_CD != 'RST004') &gt;= 5
+          </when>
+      </choose>
+  </sql>
+  
+  <select id="adminFindReviewListPaged" resultType="sst.content.dto.ReviewResponseDto">
+      SELECT
+          r.RVW_NO AS rvwNo, r.RVW_PLC_NO AS rvwPlcNo, r.RVW_MBR_ID AS rvwMbrId,
+          r.RVW_RATING AS rvwRating, r.RVW_CONTENT AS rvwContent, 
+          DATE_FORMAT(r.RVW_REG_DATE, '%Y-%m-%d') AS rvwRegDate, r.RVW_USE_YN AS rvwUseYn, 
+          m.MBR_NICKNAME AS nickname, p.PLC_NAME AS plcName
+      FROM REVIEW r
+      JOIN MEMBER m ON r.RVW_MBR_ID = m.MBR_ID
+      JOIN PLACE p ON r.RVW_PLC_NO = p.PLC_NO
+      WHERE 1=1
+      <include refid="adminReviewSearchCondition"/>
+      ORDER BY r.RVW_NO DESC
+      LIMIT #{offset}, #{size}
+  </select>
+
+  <select id="adminCountReviewList" resultType="int">
+      SELECT COUNT(*)
+      FROM REVIEW r
+      JOIN MEMBER m ON r.RVW_MBR_ID = m.MBR_ID
+      JOIN PLACE p ON r.RVW_PLC_NO = p.PLC_NO
+      WHERE 1=1
+      <include refid="adminReviewSearchCondition"/>
+  </select>
+
+  <update id="adminUpdateReviewUseYn">
+      UPDATE REVIEW
+      SET RVW_USE_YN = #{useYn}, RVW_UP_DATE = NOW()
+      WHERE RVW_NO = #{rvwNo}
+  </update>
+  
+  <select id="adminFindPlcNoByRvwNo" resultType="long">
+      SELECT RVW_PLC_NO FROM REVIEW WHERE RVW_NO = #{rvwNo}
+  </select>
+
+  <insert id="insertReview" parameterType="sst.content.dto.ReviewRequestDto" useGeneratedKeys="true" keyProperty="rvwNo">
+    INSERT INTO REVIEW (RVW_PLC_NO, RVW_MBR_ID, RVW_RATING, RVW_CONTENT, RVW_REG_DATE)
+    VALUES (#{rvwPlcNo}, #{rvwMbrId}, #{rvwRating}, #{rvwContent}, NOW())
+  </insert>
+
+  <update id="updateReview" parameterType="sst.content.dto.ReviewRequestDto">
+    UPDATE REVIEW SET RVW_RATING = #{rvwRating}, RVW_CONTENT = #{rvwContent}, RVW_UP_DATE = NOW()
+    WHERE RVW_NO = #{rvwNo} AND RVW_MBR_ID = #{rvwMbrId} AND RVW_USE_YN = 'Y'
+  </update>
+
+  <update id="deleteReview" parameterType="sst.content.dto.ReviewRequestDto">
+    UPDATE REVIEW SET RVW_USE_YN = 'N', RVW_UP_DATE = NOW()
+    WHERE RVW_NO = #{rvwNo} AND RVW_MBR_ID = #{rvwMbrId} AND RVW_USE_YN = 'Y'
+  </update>
+
+  <update id="syncRatingCache" parameterType="long">
+    UPDATE PLACE
+    SET PLC_AVG_RATING = (SELECT COALESCE(ROUND(AVG(RVW_RATING), 1), 0.0) FROM REVIEW WHERE RVW_PLC_NO = #{plcNo} AND RVW_USE_YN = 'Y'),
+        PLC_REVIEW_CNT = (SELECT COUNT(*) FROM REVIEW WHERE RVW_PLC_NO = #{plcNo} AND RVW_USE_YN = 'Y'),
+        PLC_UP_DATE = NOW()
+    WHERE PLC_NO = #{plcNo}
+  </update>
+
+  <select id="selectReviews" parameterType="long" resultType="sst.content.dto.ReviewResponseDto">
+    SELECT r.RVW_NO AS rvwNo, r.RVW_PLC_NO AS rvwPlcNo, r.RVW_MBR_ID AS rvwMbrId, r.RVW_RATING AS rvwRating,
+           r.RVW_CONTENT AS rvwContent, r.RVW_REG_DATE AS rvwRegDate, m.MBR_NICKNAME AS nickname
+    FROM REVIEW r JOIN MEMBER m ON r.RVW_MBR_ID = m.MBR_ID
+    WHERE r.RVW_PLC_NO = #{plcNo} AND r.RVW_USE_YN = 'Y'
+    ORDER BY r.RVW_REG_DATE DESC
+  </select>
+
+</mapper>
