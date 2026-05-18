@@ -1,0 +1,70 @@
+name: Java CI with Gradle
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up JDK 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+    
+    # application.properties는 외부에 노출되면 안되므로 Actions가 빌드될때마다 해당 Repository의 Secret 설정을
+    # 이용하여서 설정 파일을 생성해줌 (github에 commit 되는게 아님!)
+    # 현재 팀프로젝트의 디렉토리가 존재할시 아래와 같이 디렉토리명 추가 (없는 경우 - run : touch ./src/main/resources/application.properties 작성)
+    - run : touch ./sst-backend/src/main/resources/application.properties
+    - run : echo "${{ secrets.APP_PROPERTIES }}" > ./sst-backend/src/main/resources/application.properties
+    - run : cat ./sst-backend/src/main/resources/application.properties
+
+    # Configure Gradle for optimal use in GitHub Actions, including caching of downloaded dependencies.
+    # See: https://github.com/gradle/actions/blob/main/setup-gradle/README.md
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@af1da67850ed9a4cedd57bfd976089dd991e2582 # v4.0.0
+      with:
+          cache-read-only: false # 캐시 읽기 및 쓰기 활성화
+
+    # working-directory 설정은 현재 팀프로젝트의 디렉토리가 존재하지 않을 시 생략가능
+    - name: Grant Execute Permission For Gradlew # Gradlew 실행 권한 부여
+      run: chmod +x gradlew
+      working-directory: ./sst-backend
+      
+    - name: Build with Gradle # Gradle 빌드 실행
+      run: | # 실패 즉시 중단
+          set -e
+          ./gradlew clean build -x test
+      working-directory: ./sst-backend
+    
+    - name: Check built JAR file
+      run: ls -lh ./eum/build/libs/*.jar
+
+    - name: Transfer a jar file to the Server
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: ${{ secrets.OCI_HOST }}
+        username: ${{ secrets.OCI_USER }}
+        key: ${{ secrets.KSMARTDEV }}
+        source: "sst-backend/build/libs/*.jar"
+        target: "${{ secrets.OCI_DEPLOY_PATH }}"
+        strip_components: 3
+
+    - name: Rename jar and restart service
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.OCI_HOST }}
+        username: ${{ secrets.OCI_USER }}
+        key: ${{ secrets.KSMARTDEV }}
+        script: |
+          cd ${{ secrets.OCI_RELEASE }}
+          sudo sh release.sh
