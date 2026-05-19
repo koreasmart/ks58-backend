@@ -45,7 +45,9 @@ jobs:
     # JAR 파일명을 통일 (app.jar)
     - name: Rename JAR
       run: |
-        cp ./sst-backend/build/libs/*.jar ./app.jar
+        JAR_FILE=$(ls ./sst-backend/build/libs/*.jar | grep -v plain)
+        echo "JAR 파일: $JAR_FILE"
+        cp "$JAR_FILE" ./app.jar
 
     # GitHub Release에 JAR 업로드
     - name: Upload JAR to GitHub Release
