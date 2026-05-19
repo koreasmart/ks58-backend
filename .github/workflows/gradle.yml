@@ -1,10 +1,12 @@
 name: Java CI with Gradle
 
 on:
-  push:
-    branches: [ "master" ]
   pull_request:
     branches: [ "master" ]
+    # PR이 "닫혔을 때(closed)" 트리거
+    # - merged 되었든, 그냥 닫혔든 둘 다 포함
+    # - 만약 "머지될 때만" 실행하고 싶으면 조건 추가가 필요함 (예: if: github.event.pull_request.merged == true)
+    types: [closed]
 
 jobs:
   build:
